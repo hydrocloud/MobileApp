@@ -1,4 +1,5 @@
 import sys
+import time
 import json
 import flask
 import gevent
@@ -8,14 +9,13 @@ import pymongo
 import requests
 import uuid
 import zhixue
-import oneidentity_dc
 
 gevent.monkey.patch_all()
 
 app = flask.Flask(__name__)
 app_internal = flask.Flask(__name__)
 cfg = {}
-db = pymongo.MongoClient("127.0.0.1", 27017).HydroCloud_StudentIDService
+db = pymongo.MongoClient("127.0.0.1", 27017).HydroCloud_MobileApp
 
 with open(sys.argv[1], "rb") as f:
     cfg = json.loads(f.read().decode("utf-8"))
@@ -42,16 +42,25 @@ class User:
         self.class_id = class_id
         self.class_name = class_name
 
+        self.zhixue_username = ""
+        self.zhixue_password = ""
+
         self.disabled = False
     
     @staticmethod
-    def get_by_id(id):
+    def get_by_id(id, with_credentials = False):
         u = db.users.find_one({
             "id": id
         })
         if u == None or u.get("disabled", False) == True:
             return None
-        return User(id = id, name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        
+        ret = User(id = id, name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        if with_credentials:
+            ret.zhixue_username = u["zhixue_username"]
+            ret.zhixue_password = u["zhixue_password"]
+
+        return ret
     
     def update(self):
         return db.users.update_one({
@@ -66,6 +75,8 @@ class User:
                 "school_name": self.school_name,
                 "class_id": self.class_id,
                 "class_name": self.class_name,
+                "zhixue_username": self.zhixue_username,
+                "zhixue_password": self.zhixue_password,
                 "disabled": self.disabled
             }
         })
@@ -81,6 +92,8 @@ class User:
             "school_name": self.school_name,
             "class_id": self.class_id,
             "class_name": self.class_name,
+            "zhixue_username": self.zhixue_username,
+            "zhixue_password": self.zhixue_password,
             "disabled": self.disabled
         })
     
@@ -98,17 +111,46 @@ class User:
             return True
         return False
     
-    def load_student_info_from_zhixue_login_response(self, resp):
+    def load_student_info_from_zhixue_login_response(self, username, pw, resp):
         if resp["errorCode"] != 0:
             raise Exception("Login failed")
         r = resp["result"]
+        print(r)
         self.real_name = r["name"]
         self.student_id = r["userInfo"]["studentNo"]
         self.school_id = r["userInfo"]["school"]["schoolId"]
         self.school_name = r["userInfo"]["school"]["schoolName"]
         self.class_id = r["clazzInfo"]["id"]
         self.class_name = r["clazzInfo"]["name"]
+        self.zhixue_username = username
+        self.zhixue_password = pw
         self.role = "student"
+    
+    def get_zhixue_token(self):
+        return zhixue.login(self.zhixue_username, self.zhixue_password)["result"]["token"]
+    
+    def get_zhixue_exams(self):
+        token = self.get_zhixue_token()
+
+        current_time = int(time.time() * 1000)
+
+        cached = db.user_exams.find_one({
+            "user_id": self.id
+        })
+        if cached == None or current_time - cached["update_time"] > 3600000: # 1 hour
+            print("Fetching exam list for user " + self.id)
+            db.user_exams.delete_many({
+                "user_id": self.id
+            })
+            exams = zhixue.get_exam_list(token)
+            db.user_exams.insert_one({
+                "user_id": self.id,
+                "exams": exams,
+                "update_time": current_time
+            })
+        else:
+            exams = cached["exams"]
+        return exams
 
 class Class:
     def __init__(id = "", name = "", school_id = "", school_name = "", admins = []):
@@ -164,66 +206,6 @@ class Class:
             "id": self.id
         })
 
-class DomainController(oneidentity_dc.DomainController):
-    def verify_school_and_add_user(self, u):
-        if u.school_name != "江苏省南通中学":
-            return {
-                "ok": False,
-                "msg": "当前用户所在学校不受支持"
-            }
-        self.add_user(u.id)
-        return {
-            "ok": True
-        }
-
-    def on_join(self, user_id, form):
-        u = User.get_by_id(user_id)
-
-        if form != None and type(form) == str: # Workaround
-            form = json.loads(form)
-
-        if u == None:
-            user_info = self.get_user_basic_info(user_id)
-            u = User(id = user_id, name = user_info["name"])
-            u.update_or_insert()
-        if form == None:
-            if u.is_verified() == False:
-                return {
-                    "ok": False,
-                    "form": [
-                        {
-                            "name": "zhixue_username",
-                            "description": "智学网用户名",
-                            "type": "text"
-                        },
-                        {
-                            "name": "zhixue_password",
-                            "description": "智学网密码",
-                            "type": "password"
-                        }
-                    ]
-                }
-            return self.verify_school_and_add_user(u)
-        else:
-            r = zhixue.login(form["zhixue_username"], form["zhixue_password"])
-            try:
-                u.load_student_info_from_zhixue_login_response(r)
-            except:
-                return {
-                    "ok": False,
-                    "msg": "无法使用提供的用户名和密码登录智学网"
-                }
-            u.update_or_insert()
-            return self.verify_school_and_add_user(u)
-    
-    def on_quit(self, user_id):
-        self.remove_user(user_id)
-        return {
-            "ok": True
-        }
-
-dc = DomainController(cfg["domain_token"])
-
 sessions = {}
 
 @app.route("/api/user/login", methods = ["POST"])
@@ -248,6 +230,38 @@ def on_api_user_login():
     sessions[sess.token] = sess
     resp = flask.make_response()
     resp.set_cookie("token", sess.token)
+
+    pt = str(uuid.uuid4())
+    db.persistent_tokens.insert_one({
+        "token": pt,
+        "user_id": sess.user_id,
+        "username": sess.username
+    })
+
+    resp.set_data(json.dumps({
+        "err": 0,
+        "msg": "OK",
+        "persistent_token": pt
+    }))
+    return resp
+
+@app.route("/api/user/auto_login", methods = ["POST"])
+def on_api_user_auto_login():
+    pt = flask.request.form["persistent_token"]
+    info = db.persistent_tokens.find_one({
+        "token": pt
+    })
+    if info == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Invalid persistent token"
+        })
+    
+    sess = Session(info["user_id"], info["username"])
+    sessions[sess.token] = sess
+    resp = flask.make_response()
+    resp.set_cookie("token", sess.token)
+
     resp.set_data(json.dumps({
         "err": 0,
         "msg": "OK"
@@ -284,10 +298,13 @@ def on_api_user_verify_zhixue():
         })
     
     u = User.get_by_id(sess.user_id)
+
+    username = flask.request.form["username"]
+    pw = flask.request.form["password"]
     
-    r = zhixue.login(flask.request.form["username"], flask.request.form["password"])
+    r = zhixue.login(username, pw)
     try:
-        u.load_student_info_from_zhixue_login_response(r)
+        u.load_student_info_from_zhixue_login_response(username, pw, r)
     except:
         return flask.jsonify({
             "err": 2,
@@ -363,6 +380,42 @@ def on_api_student_remove():
         "msg": "OK"
     })
 
+@app.route("/api/global/notification", methods = ["POST"])
+def on_api_global_notification():
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "content": "欢迎体验通中云平台移动客户端。"
+    })
+
+@app.route("/api/student/exams", methods = ["POST"])
+def on_api_student_exams():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+
+    u = User.get_by_id(sess.user_id, with_credentials = True)
+    if u.is_verified() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "User not verified"
+        })
+    
+    if u.role != "student":
+        return flask.jsonify({
+            "err": 3,
+            "msg": "User is not a student"
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "exams": u.get_zhixue_exams()
+    })
+
 @app_internal.route("/info/student", methods = ["POST"])
 def on_internal_info_student():
     req = flask.request.get_json(force = True)
@@ -390,6 +443,5 @@ def on_internal_info_student():
         "class_name": u.class_name
     })
 
-gevent.spawn(lambda: dc.run())
 gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())
 gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["service_port"]), app).serve_forever()

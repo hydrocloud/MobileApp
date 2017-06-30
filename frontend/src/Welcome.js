@@ -23,15 +23,31 @@ export default class Welcome extends React.Component {
             if(r.err !== 0) {
                 return;
             }
-            user.loadInfoIntoGlobal(r);
+            console.log(r);
             return view.dispatch(Me);
         } catch(e) {
             return;
         }
     }
 
+    async tryAutoLogin() {
+        if(!localStorage.persistentToken) {
+            return;
+        }
+
+        let pt = localStorage.persistentToken;
+
+        let r = await network.makeRequest("POST", "/api/user/auto_login", {
+            persistent_token: pt
+        });
+
+        if(r.err === 0) {
+            return view.dispatch(Me);
+        }
+    }
+
     async login() {
-        this.tryLoadSession();
+        console.log("login");
 
         const clientToken = await window.oneidentity.login(document.getElementById("login-container"));
 
@@ -44,14 +60,20 @@ export default class Welcome extends React.Component {
         if(r.err !== 0) {
             throw new Error(r.msg);
         }
+        localStorage.persistentToken = r.persistent_token;
+
         r = await network.makeRequest("POST", "/api/user/info");
         r = JSON.parse(r);
         if(r.err !== 0) {
             throw new Error(r.msg);
         }
-        user.loadInfoIntoGlobal(r);
         this.setState({ loggingIn: false });
         return view.dispatch(Me);
+    }
+
+    async componentDidMount() {
+        await this.tryLoadSession();
+        await this.tryAutoLogin();
     }
 
     render() {

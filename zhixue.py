@@ -25,3 +25,21 @@ def login(username, pw):
     }).json()
 
     return r
+
+def get_exam_list(token):
+    r = requests.get("http://app.zhixue.com/study/report/get/exam/list", params = {
+        "pageIndex": "1",
+        "pageSize": "2147483647",
+        "token": token,
+        "version": "1.1"
+    }).json()
+
+    if r["errorCode"] != 0:
+        raise RuntimeError("Failed to get exam list")
+
+    ret = []
+    
+    for item in r["result"]:
+        ret.append(item)
+    
+    return ret

@@ -1,5 +1,11 @@
+const config = require("./config.js");
+
 export function makeRequest(method, url, data, headers) {
     return new Promise((resolve, reject) => {
+        if(url.startsWith("/")) {
+            url = config.CLOUD_PREFIX + url;
+        }
+        
         let xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
         if(headers) {

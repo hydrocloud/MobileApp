@@ -4,17 +4,18 @@ body {
 
 h3 {
     font-size: 24px;
+    color: #3F51B5;
 }
 
 #main-content {
     align-items: center;
     display: flex;
     justify-content: center;
-    text-align: center;
 }
 
 .main-card {
     padding: 10px 10px;
+    margin-bottom: 30px;
 }
 
 #copyright {
