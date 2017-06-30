@@ -24,7 +24,7 @@ export default class Main extends React.Component {
             <div>
                 <Layout fixedHeader>
                     <Header title={
-                        <span style={{marginLeft: "-50px"}}>Student ID</span>
+                        <span style={{marginLeft: "-50px"}}>通中云平台</span>
                     } />
                     <Content>
                         <Grid>

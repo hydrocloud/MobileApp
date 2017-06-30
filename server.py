@@ -363,10 +363,6 @@ def on_api_student_remove():
         "msg": "OK"
     })
 
-@app.route("/")
-def on_root():
-    return flask.render_template("general.html")
-
 @app_internal.route("/info/student", methods = ["POST"])
 def on_internal_info_student():
     req = flask.request.get_json(force = True)
