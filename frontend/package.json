@@ -1,0 +1,30 @@
+{
+  "name": "hydrocloud-mobile-app",
+  "version": "0.1.0",
+  "description": "HydroCloud Mobile App",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hydrocloud/MobileApp.git"
+  },
+  "author": "The HydroCloud Members",
+  "license": "LGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/hydrocloud/MobileApp/issues"
+  },
+  "homepage": "https://github.com/hydrocloud/MobileApp#readme",
+  "dependencies": {
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-es2015": "^6.22.0",
+    "babel-preset-react": "^6.23.0",
+    "babel-preset-stage-3": "^6.22.0",
+    "babel-runtime": "^6.23.0",
+    "babelify": "^7.3.0",
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "react-mdl": "^1.9.0"
+  }
+}
