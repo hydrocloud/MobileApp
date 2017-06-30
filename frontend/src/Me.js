@@ -23,6 +23,11 @@ export default class Me extends React.Component {
         await user.info.update();
         if(!user.info.loggedIn) {
             view.dispatch(Welcome);
+            return;
+        }
+        if(!user.info.verified) {
+            view.dispatch(Verify);
+            return;
         }
     }
 
