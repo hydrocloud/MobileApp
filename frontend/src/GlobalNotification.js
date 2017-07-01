@@ -37,7 +37,13 @@ export default class GlobalNotification extends React.Component {
         return (
             <Card shadow={0} className="main-card">
                 <h3>公告</h3>
-                <div style={{fontSize: "14px", lineHeight: "22px", wordWrap: "break-word"}}>{this.state.content}</div>
+                <pre style={{
+                    fontSize: "14px",
+                    lineHeight: "22px",
+                    wordWrap: "break-word",
+                    whiteSpace: "pre-wrap",
+                    marginTop: "0px"
+                }}>{this.state.content}</pre>
             </Card>
         )
     }

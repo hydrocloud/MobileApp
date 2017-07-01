@@ -385,7 +385,7 @@ def on_api_global_notification():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "content": "欢迎体验通中云平台移动客户端。"
+        "content": cfg["global_notification"]
     })
 
 @app.route("/api/student/exams", methods = ["POST"])
@@ -416,6 +416,71 @@ def on_api_student_exams():
         "exams": u.get_zhixue_exams()
     })
 
+@app.route("/api/user/request_login", methods = ["POST"])
+def on_api_user_request_login():
+    req_id = str(uuid.uuid4())
+    current_time = int(time.time() * 1000)
+
+    db.login_requests.insert_one({
+        "id": req_id,
+        "create_time": current_time,
+        "done": False,
+        "client_token": ""
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "request_id": req_id
+    })
+
+@app.route("/api/user/check_login_status", methods = ["POST"])
+def on_api_user_check_login_status():
+    req_id = flask.request.form["request_id"]
+    r = db.login_requests.find_one({
+        "id": req_id
+    })
+    if r["done"] == True:
+        db.login_requests.delete_one({
+            "id": req_id
+        })
+        return flask.jsonify({
+            "err": 0,
+            "msg": "OK",
+            "client_token": r["client_token"]
+        })
+    return flask.jsonify({
+        "err": 1,
+        "msg": "Not done"
+    })
+
+
+@app.route("/api/auth/callback", methods = ["GET"])
+def on_api_auth_callback():
+    req_id = flask.request.args["request_id"]
+    client_token = flask.request.args["client_token"]
+    db.login_requests.update_one({
+        "id": req_id
+    }, {
+        "$set": {
+            "done": True,
+            "client_token": client_token
+        }
+    })
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/update/latest_version", methods = ["POST"])
+def on_api_update_latest_version():
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "version_code": 1,
+        "version_description": "Initial release"
+    })
+
 @app_internal.route("/info/student", methods = ["POST"])
 def on_internal_info_student():
     req = flask.request.get_json(force = True)
@@ -443,5 +508,5 @@ def on_internal_info_student():
         "class_name": u.class_name
     })
 
-gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())
+#gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())
 gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["service_port"]), app).serve_forever()

@@ -39,7 +39,10 @@ export default class MyExams extends React.Component {
                     <TableHeader name="subject">科目</TableHeader>
                     <TableHeader numeric name="score">总分</TableHeader>
                 </DataTable><br />
-                <span style={{color: "#7F7F7F", fontSize: "14px"}}>{subjectScores.length} 门科目的总分: {totalScore}</span>
+                <p style={{color: "#7F7F7F", fontSize: "14px"}}>
+                    <span>{subjectScores.length} 门科目的总分: {totalScore}</span><br />
+                    <span>请登录智学网 (www.zhixue.com) 查看详情。</span>
+                </p>
                 <br />
             </div>
         )
