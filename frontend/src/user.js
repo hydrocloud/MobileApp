@@ -4,6 +4,8 @@ export let info = {
     load(r) {
         this.loggedIn = true;
         this.verified = true;
+        this.userId = r.user_id;
+        this.username = r.username;
         this.name = r.name;
         this.schoolName = r.school_name;
         this.className = r.class_name;
@@ -11,6 +13,8 @@ export let info = {
     reset() {
         this.loggedIn = false;
         this.verified = false;
+        this.userId = null;
+        this.username = null;
         this.name = null;
         this.schoolName = null;
         this.className = null;

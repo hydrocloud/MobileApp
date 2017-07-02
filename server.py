@@ -362,6 +362,8 @@ def on_api_student_info():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
+        "user_id": u.id,
+        "username": u.name,
         "name": u.real_name,
         "school_name": u.school_name,
         "class_name": u.class_name
@@ -493,7 +495,7 @@ def on_api_update_latest_version():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "version_code": 3,
+        "version_code": 4,
         "version_description": "各种 Bug 修复 & 新功能"
     })
 

@@ -20,6 +20,13 @@ export async function init() {
     initWaitingCallbacks = [];
 }
 
+export async function update() {
+    let newStatus = await network.makeRequest("POST", "/api/user/qq_connect/status");
+    newStatus = JSON.parse(newStatus);
+    assert(newStatus.err === 0);
+    status = newStatus;
+}
+
 export function waitForInit() {
     return new Promise(cb => {
         if(initDone) cb();

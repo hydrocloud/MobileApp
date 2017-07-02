@@ -29,6 +29,7 @@ export default class QQConnection extends React.Component {
 
     async showConnectStatus() {
         await qq.waitForInit();
+        await qq.update();
         let status = qq.status;
 
         let info = null;
@@ -76,7 +77,8 @@ export default class QQConnection extends React.Component {
                 }}>
                     <span>请将你的用户名和以下数字提供给我们的 QQ 机器人来验证:</span><br />
                     <strong>{reqId}</strong><br />
-                    <span>然后，请点击确认。</span><br />
+                    <span>在标准的机器人实现中，你通常只需发送指令 <code>/connect {user.info.username} {reqId}</code> 即可。</span><br />
+                    <span>机器人提示关联成功后，请点击确认。</span><br />
                     <Button colored raised onClick={() => this.showConnectStatus()}>确认</Button>
                 </div>
             )
