@@ -493,8 +493,8 @@ def on_api_update_latest_version():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "version_code": 1,
-        "version_description": "Initial release"
+        "version_code": 3,
+        "version_description": "各种 Bug 修复 & 新功能"
     })
 
 @app.route("/api/user/qq_connect/status", methods = ["POST"])
