@@ -9,6 +9,7 @@ import pymongo
 import requests
 import uuid
 import zhixue
+import random
 
 gevent.monkey.patch_all()
 
@@ -56,6 +57,21 @@ class User:
             return None
         
         ret = User(id = id, name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        if with_credentials:
+            ret.zhixue_username = u["zhixue_username"]
+            ret.zhixue_password = u["zhixue_password"]
+
+        return ret
+    
+    @staticmethod
+    def get_by_name(name, with_credentials = False):
+        u = db.users.find_one({
+            "name": name
+        })
+        if u == None or u.get("disabled", False) == True:
+            return None
+        
+        ret = User(id = u["id"], name = name, role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
         if with_credentials:
             ret.zhixue_username = u["zhixue_username"]
             ret.zhixue_password = u["zhixue_password"]
@@ -481,31 +497,227 @@ def on_api_update_latest_version():
         "version_description": "Initial release"
     })
 
-@app_internal.route("/info/student", methods = ["POST"])
-def on_internal_info_student():
-    req = flask.request.get_json(force = True)
-    user_id = req.get("user_id", None)
-    if type(user_id) != str:
+@app.route("/api/user/qq_connect/status", methods = ["POST"])
+def on_api_user_qq_connect_status():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
         return flask.jsonify({
             "err": 1,
-            "msg": "Invalid request"
+            "msg": "Session not found"
         })
     
-    u = User.get_by_id(user_id)
-    if u == None:
+    conn = db.user_qq_connections.find_one({
+        "user_id": sess.user_id
+    })
+    if conn == None:
+        return flask.jsonify({
+            "err": 0,
+            "msg": "OK",
+            "connected": False
+        })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "connected": True,
+        "qq": conn["qq"],
+        "connect_time": conn["create_time"]
+    })
+
+@app.route("/api/user/qq_connect/request", methods = ["POST"])
+def on_api_user_qq_connect_request():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+
+    u = User.get_by_id(sess.user_id)
+    if u.is_verified() == False:
         return flask.jsonify({
             "err": 2,
-            "msg": "User not found"
+            "msg": "User not verified"
+        })
+    
+    current_time = int(time.time() * 1000)
+
+    req_id_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    random.shuffle(req_id_list)
+    req_id = ''.join(req_id_list)[:6]
+    
+    db.qq_connect_requests.delete_many({
+        "user_id": u.id
+    })
+    db.qq_connect_requests.insert_one({
+        "user_id": u.id,
+        "request_id": req_id,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "request_id": req_id
+    })
+
+@app.route("/api/user/qq_connect/disconnect", methods = ["POST"])
+def on_api_user_qq_connect_disconnect():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    db.user_qq_connections.delete_many({
+        "user_id": sess.user_id
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/user/qq_connect/watched_group_messages", methods = ["POST"])
+def on_api_user_qq_connect_watched_group_messages():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    msgs = []
+    
+    it = db.user_qq_watched_group_messages.find({
+        "user_id": sess.user_id
+    }).sort("create_time", -1).limit(5)
+    for msg in it:
+        msgs.append({
+            "from_qq": msg["from_qq"],
+            "from_group": msg["from_group"],
+            "content": msg["content"],
+            "time": msg["create_time"]
         })
     
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "name": u.real_name,
-        "school_id": u.school_id,
-        "school_name": u.school_name,
-        "class_id": u.class_id,
-        "class_name": u.class_name
+        "messages": msgs
+    })
+
+qqbot_token = None
+qqbot_service_id = "fd44ac0a-74a9-453e-9a23-f2b2ffdce9f2"
+
+@app.route("/api/qqbot/get_session", methods = ["POST"])
+def on_api_qqbot_get_session():
+    token = flask.request.form["token"]
+    info = requests.post("https://oneidentity.me/services/api/get_info_by_token", data = {
+        "token": token
+    }).json()
+    if info["err"] != 0 or info["service_id"] != qqbot_service_id:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Verification failed"
+        })
+    
+    global qqbot_token
+    qqbot_token = str(uuid.uuid4())
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "token": qqbot_token
+    })
+
+@app.route("/api/qqbot/verify_user", methods = ["POST"])
+def on_api_qqbot_verify_user():
+    token = flask.request.form["token"]
+    if qqbot_token == None or qqbot_token != token:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Invalid token"
+        })
+    
+    username = flask.request.form["username"]
+    req_id = flask.request.form["request_id"]
+    qq = flask.request.form["qq"]
+
+    current_time = int(time.time() * 1000)
+
+    u = User.get_by_name(username)
+    if u == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "User not found"
+        })
+    
+    req = db.qq_connect_requests.find_one({
+        "user_id": u.id
+    })
+    if req == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "No requests for the user"
+        })
+    
+    if req["request_id"] != req_id:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Incorrect request id"
+        })
+    
+    db.qq_connect_requests.delete_many({
+        "user_id": u.id
+    })
+
+    db.user_qq_connections.delete_many({
+        "user_id": u.id
+    })
+
+    db.user_qq_connections.insert_one({
+        "user_id": u.id,
+        "qq": qq,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/qqbot/add_user_watched_group_messages", methods = ["POST"])
+def on_api_qqbot_add_user_watched_group_messages():
+    token = flask.request.form["token"]
+    if qqbot_token == None or qqbot_token != token:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Invalid token"
+        })
+
+    msgs = json.loads(flask.request.form["messages"])
+    for m in msgs:
+        user_id = m.get("user_id", None)
+        if user_id == None:
+            user_id = db.user_qq_connections.find_one({
+                "qq": m["qq"]
+            })["user_id"]
+        if user_id == None:
+            return flask.jsonify({
+                "err": 1,
+                "msg": "Unable to find the user"
+            })
+        db.user_qq_watched_group_messages.insert_one({
+            "user_id": user_id,
+            "from_qq": m["from_qq"],
+            "from_group": m["from_group"],
+            "content": m["content"],
+            "create_time": m["create_time"]
+        })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
     })
 
 #gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())

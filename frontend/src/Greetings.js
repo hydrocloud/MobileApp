@@ -37,7 +37,7 @@ export default class Greetings extends React.Component {
             msg1 += "中午好。";
         } else if(hh < 18) {
             msg1 += "下午好。";
-            msg2 += "午后阳光明媚，何不在通中的校园里走一走。";
+            //msg2 += "午后阳光明媚，何不在通中的校园里走一走。";
         } else {
             msg1 += "晚上好。";
         }

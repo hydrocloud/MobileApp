@@ -11,13 +11,18 @@ import MyInfo from "./MyInfo.js";
 import GlobalNotification from "./GlobalNotification.js";
 import MyExams from "./MyExams.js";
 import Greetings from "./Greetings.js";
+import QQConnection from "./QQConnection.js";
+import WatchedQQGroupMessages from "./WatchedQQGroupMessages.js";
 const network = require("./network.js");
 const user = require("./user.js");
+const qq = require("./qq.js");
 
 export default class Me extends React.Component {
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = {
+            qqWidgets: ""
+        };
     }
 
     async componentDidMount() {
@@ -30,6 +35,27 @@ export default class Me extends React.Component {
             view.dispatch(Verify);
             return;
         }
+        qq.init();
+        this.loadQQWidgets();
+    }
+
+    async loadQQWidgets() {
+        await qq.waitForInit();
+
+        if(!qq.status.connected) {
+            this.setState({
+                qqWidgets: ""
+            });
+            return;
+        }
+
+        this.setState({
+            qqWidgets: (
+                <div>
+                    <WatchedQQGroupMessages />
+                </div>
+            )
+        });
     }
 
     render() {
@@ -38,6 +64,8 @@ export default class Me extends React.Component {
                 <Greetings />
                 <MyInfo />
                 <GlobalNotification />
+                <QQConnection />
+                {this.state.qqWidgets}
                 <MyExams />
             </div>
         )
