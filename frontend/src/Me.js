@@ -10,6 +10,7 @@ import Welcome from "./Welcome.js";
 import MyInfo from "./MyInfo.js";
 import GlobalNotification from "./GlobalNotification.js";
 import MyExams from "./MyExams.js";
+import Greetings from "./Greetings.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
@@ -34,6 +35,7 @@ export default class Me extends React.Component {
     render() {
         return (
             <div>
+                <Greetings />
                 <MyInfo />
                 <GlobalNotification />
                 <MyExams />
