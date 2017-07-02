@@ -694,19 +694,23 @@ def on_api_qqbot_add_user_watched_group_messages():
             "err": 1,
             "msg": "Invalid token"
         })
+    
+    fail_count = 0
 
     msgs = json.loads(flask.request.form["messages"])
     for m in msgs:
         user_id = m.get("user_id", None)
         if user_id == None:
-            user_id = db.user_qq_connections.find_one({
+            item = db.user_qq_connections.find_one({
                 "qq": m["qq"]
-            })["user_id"]
-        if user_id == None:
-            return flask.jsonify({
-                "err": 1,
-                "msg": "Unable to find the user"
             })
+            if item == None:
+                user_id = None
+            else:
+                user_id = item["user_id"]
+        if user_id == None:
+            fail_count += 1
+            continue
         db.user_qq_watched_group_messages.insert_one({
             "user_id": user_id,
             "from_qq": m["from_qq"],
@@ -717,7 +721,8 @@ def on_api_qqbot_add_user_watched_group_messages():
 
     return flask.jsonify({
         "err": 0,
-        "msg": "OK"
+        "msg": "OK",
+        "fail_count": fail_count
     })
 
 #gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())
