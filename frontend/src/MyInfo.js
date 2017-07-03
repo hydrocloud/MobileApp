@@ -7,6 +7,7 @@ import { Card, Button, Textfield, ProgressBar } from "react-mdl";
 import * as view from "./view.js";
 import Me from "./Me.js";
 import Welcome from "./Welcome.js";
+import Verify from "./Verify.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
@@ -39,11 +40,14 @@ export default class MyInfo extends React.Component {
     }
 
     async removeStudent() {
+        if(!confirm("你正在撤销当前账号的学生认证。请再次确认。")) {
+            return;
+        }
+        
         try {
             let r = JSON.parse(await network.makeRequest("POST", "/api/student/remove"));
             assert(r.err === 0);
-            user.info.reset();
-            this.syncUserInfo();
+            this.logout();
         } catch(e) {
             console.log(e);
             alert("解除关联失败。");
@@ -64,7 +68,7 @@ export default class MyInfo extends React.Component {
         clearCookies();
         delete localStorage.persistentToken;
 
-        await user.info.update();
+        user.info.reset();
         view.dispatch(Welcome);
     }
 
@@ -81,8 +85,9 @@ export default class MyInfo extends React.Component {
                         <p>姓名: {this.state.user.name}</p>
                         <p>学校: {this.state.user.schoolName}</p>
                         <p>班级: {this.state.user.className}</p>
-                        <Button colored onClick={() => this.logout()}>登出</Button>
-                        <Button accent onClick={() => this.removeStudent()}>解除关联</Button>
+                        <Button colored onClick={() => this.logout()}>登出</Button><br />
+                        <Button colored onClick={() => view.dispatch(Verify)}>更改认证方式</Button><br />
+                        <Button accent onClick={() => this.removeStudent()}>撤销学生认证并登出</Button><br />
                     </div>
                 </Card>
             );

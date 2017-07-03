@@ -15,6 +15,7 @@ import QQConnection from "./QQConnection.js";
 import WatchedQQGroupMessages from "./WatchedQQGroupMessages.js";
 import ClassNotifications from "./ClassNotifications.js";
 import AddClassNotification from "./AddClassNotification.js";
+import ManualVerificationManagement from "./ManualVerificationManagement.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -23,7 +24,8 @@ export default class Me extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            qqWidgets: ""
+            qqWidgets: "",
+            adminWidgets: ""
         };
     }
 
@@ -39,6 +41,23 @@ export default class Me extends React.Component {
         }
         qq.init();
         this.loadQQWidgets();
+        this.loadAdminWidgets();
+    }
+
+    loadAdminWidgets() {
+        if(user.info.isAdmin) {
+            this.setState({
+                adminWidgets: (
+                    <div>
+                        <ManualVerificationManagement />
+                    </div>
+                )
+            });
+        } else {
+            this.setState({
+                adminWidgets: ""
+            });
+        }
     }
 
     async loadQQWidgets() {
@@ -70,6 +89,7 @@ export default class Me extends React.Component {
                 {this.state.qqWidgets}
                 <ClassNotifications />
                 <MyExams />
+                {this.state.adminWidgets}
             </div>
         )
     }

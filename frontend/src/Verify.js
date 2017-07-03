@@ -13,8 +13,17 @@ export default class Verify extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            doingZhixueLogin: false
+            doingZhixueLogin: false,
+            manualVerificationInfo: ( <Button colored onClick={() => this.showManualVerificationInfo()}>没有智学网账号？</Button> )
         };
+    }
+
+    showManualVerificationInfo() {
+        this.setState({
+            manualVerificationInfo: (
+                <p>如果你没有智学网账号，请联系通中云平台管理员完成人工验证。</p>
+            )
+        });
     }
 
     async requestZhixueVerification() {
@@ -66,7 +75,8 @@ export default class Verify extends React.Component {
                                 style={{width: '100%'}}
                             /><br />
                             <Button raised colored onClick={() => this.requestZhixueVerification()}>确认</Button>
-                        </form>
+                        </form><br />
+                        {this.state.manualVerificationInfo}
                         <div style={{display: this.state.doingZhixueLogin ? "block" : "none"}}>
                             <ProgressBar indeterminate />
                         </div>

@@ -127,6 +127,13 @@ class User:
             return True
         return False
     
+    def is_admin(self):
+        for uid in cfg["admin_users"]:
+            if self.id == uid:
+                return True
+
+        return False
+    
     def load_student_info_from_zhixue_login_response(self, username, pw, resp):
         if resp["errorCode"] != 0:
             raise Exception("Login failed")
@@ -143,6 +150,9 @@ class User:
         self.role = "student"
     
     def get_zhixue_token(self):
+        if type(self.zhixue_username) != str or len(self.zhixue_username) == 0:
+            raise Exception("Zhixue account not connected")
+
         return zhixue.login(self.zhixue_username, self.zhixue_password)["result"]["token"]
     
     def get_zhixue_exams(self):
@@ -301,7 +311,8 @@ def on_api_user_info():
         "user_id": sess.user_id,
         "username": sess.username,
         "role": u.role,
-        "verified": u.is_verified()
+        "verified": u.is_verified(),
+        "is_admin": u.is_admin()
     })
 
 @app.route("/api/user/verify/zhixue", methods = ["POST"])
@@ -337,6 +348,49 @@ def on_api_user_verify_zhixue():
         "class_name": u.class_name
     })
 
+@app.route("/api/admin/user/verify", methods = ["POST"])
+def on_api_admin_user_verify():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    t = User.get_by_name(flask.request.form["target"])
+    if t == None:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Target user not found"
+        })
+    
+    if t.is_verified():
+        return flask.jsonify({
+            "err": 4,
+            "msg": "Already verified"
+        })
+    
+    t.real_name = flask.request.form["real_name"]
+    t.school_name = flask.request.form["school_name"]
+    t.class_name = flask.request.form["class_name"]
+    t.role = "student"
+
+    student_id = flask.request.form.get("student_id", None)
+    if student_id != None and len(student_id) > 0:
+        t.student_id = student_id
+    
+    t.update()
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/student/info", methods = ["POST"])
 def on_api_student_info():
     sess = sessions.get(flask.request.cookies["token"], None)
@@ -364,6 +418,7 @@ def on_api_student_info():
         "msg": "OK",
         "user_id": u.id,
         "username": u.name,
+        "is_admin": u.is_admin(),
         "name": u.real_name,
         "school_name": u.school_name,
         "class_name": u.class_name
