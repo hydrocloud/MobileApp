@@ -13,7 +13,8 @@ export default class Welcome extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            loggingIn: false
+            loggingIn: false,
+            requestingLogin: false
         };
     }
 
@@ -68,7 +69,18 @@ export default class Welcome extends React.Component {
 
         listenForClientToken(requestId);
 
-        const clientToken = await window.oneidentity.login(document.getElementById("login-container"), false, config.CLOUD_PREFIX + "/api/auth/callback?request_id=" + requestId);
+        window.oneidentity.disableStyles();
+
+        this.setState({
+            requestingLogin: true
+        });
+        
+        let loginContainer = document.getElementById("login-container");
+        const clientToken = await window.oneidentity.login(loginContainer, false, config.CLOUD_PREFIX + "/api/auth/callback?request_id=" + requestId);
+        
+        this.setState({
+            requestingLogin: false
+        });
 
         this.setState({ loggingIn: true });
         
@@ -98,7 +110,8 @@ export default class Welcome extends React.Component {
     render() {
         return (
             <div>
-                <Button raised colored onClick={() => this.login()} style={{display: this.state.loggingIn ? "none" : "block"}}>登录</Button>
+                <Button raised colored onClick={() => this.login()} style={{display: (this.state.loggingIn || this.state.requestingLogin) ? "none" : "block"}}>登录</Button><br />
+                <div id="login-container" style={{display: this.state.requestingLogin ? "block" : "none"}}></div><br />
                 <div style={{display: this.state.loggingIn ? "block" : "none"}}>
                     <ProgressBar indeterminate />
                 </div>
