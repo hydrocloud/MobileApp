@@ -60,9 +60,11 @@ export default class MyInfo extends React.Component {
         }
     }
 
-    logout() {
+    async logout() {
         clearCookies();
         delete localStorage.persistentToken;
+
+        await user.info.update();
         view.dispatch(Welcome);
     }
 

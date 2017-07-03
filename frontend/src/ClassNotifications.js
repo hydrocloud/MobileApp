@@ -7,11 +7,12 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
+import ClassNotificationView from "./ClassNotificationView.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
 
-export default class WatchedQQGroupMessages extends React.Component {
+export default class ClassNotifications extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
@@ -21,18 +22,18 @@ export default class WatchedQQGroupMessages extends React.Component {
     }
 
     async update() {
-        await qq.waitForInit();
-        if(!qq.status.connected) return;
+        let limit = this.props.extended ? 100 : 5;
 
-        let r = await network.makeRequest("POST", "/api/user/qq_connect/watched_group_messages");
+        let r = await network.makeRequest("POST", "/api/student/class_notification/recent", {
+            limit: limit
+        });
         r = JSON.parse(r);
         assert(r.err === 0);
 
         let rows = [];
-        for(let m of r.messages) {
+        for(let m of r.notifications) {
             rows.push({
-                fromQQ: m.from_qq,
-                fromGroup: m.from_group,
+                publisher: m.publisher,
                 detailsButton: ( <Button colored onClick={() => this.showDetails(m)}>详情</Button>),
                 time: utils.getRelativeTime(m.time)
             });
@@ -47,8 +48,7 @@ export default class WatchedQQGroupMessages extends React.Component {
         this.setState({
             details: (
                 <div>
-                    <span>群: {m.from_group}</span><br />
-                    <span>来源 QQ: {m.from_qq}</span><br />
+                    <span>发布者: {m.publisher}</span><br />
                     <span>时间: {new Date(m.time).toLocaleString()}</span><br />
                     <span>内容:</span><br />
                     <pre>{m.content}</pre>
@@ -82,7 +82,7 @@ export default class WatchedQQGroupMessages extends React.Component {
                     rows={this.state.rows}
                     style={{width: "100%"}}
                 >
-                    <TableHeader name="fromGroup">群</TableHeader>
+                    <TableHeader name="publisher">发布者</TableHeader>
                     <TableHeader name="time">时间</TableHeader>
                     <TableHeader name="detailsButton">详情</TableHeader>
                 </DataTable>
@@ -90,8 +90,9 @@ export default class WatchedQQGroupMessages extends React.Component {
         }
         return (
             <Card shadow={0} className="main-card">
-                <h3>我关注的 QQ 群消息</h3>
-                {body}
+                <h3>班级通知</h3>
+                {body}<br />
+                <Button colored style={{display: this.props.extended ? "none" : "block"}} onClick={() => view.dispatch(ClassNotificationView)}>更多</Button>
             </Card>
         )
     }

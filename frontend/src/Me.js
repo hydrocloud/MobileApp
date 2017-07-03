@@ -13,6 +13,8 @@ import MyExams from "./MyExams.js";
 import Greetings from "./Greetings.js";
 import QQConnection from "./QQConnection.js";
 import WatchedQQGroupMessages from "./WatchedQQGroupMessages.js";
+import ClassNotifications from "./ClassNotifications.js";
+import AddClassNotification from "./AddClassNotification.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -66,6 +68,7 @@ export default class Me extends React.Component {
                 <GlobalNotification />
                 <QQConnection />
                 {this.state.qqWidgets}
+                <ClassNotifications />
                 <MyExams />
             </div>
         )

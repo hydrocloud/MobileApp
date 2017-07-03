@@ -609,6 +609,92 @@ def on_api_user_qq_connect_watched_group_messages():
         "messages": msgs
     })
 
+@app.route("/api/student/class_notification/recent", methods = ["POST"])
+def on_api_student_class_notification_recent():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+
+    u = User.get_by_id(sess.user_id)
+    if u.is_verified() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "User not verified"
+        })
+    
+    if type(u.class_id) != str or len(u.class_id) == 0:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Unable to get class_id of the user"
+        })
+
+    limit = int(flask.request.form["limit"])
+    if limit <= 0:
+        return flask.jsonify({
+            "err": 4,
+            "msg": "Invalid limit"
+        })
+    
+    it = db.class_notifications.find({
+        "class_id": u.class_id
+    }).sort("create_time", -1).limit(limit)
+
+    notifications = []
+
+    for v in it:
+        notifications.append({
+            "publisher": User.get_by_id(v["user_id"]).real_name,
+            "content": v["content"],
+            "time": v["create_time"]
+        })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "notifications": notifications
+    })
+
+@app.route("/api/student/class_notification/add", methods = ["POST"])
+def on_api_student_class_notification_add():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+
+    u = User.get_by_id(sess.user_id)
+    if u.is_verified() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "User not verified"
+        })
+    
+    if type(u.class_id) != str or len(u.class_id) == 0:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Unable to get class_id of the user"
+        })
+    
+    content = flask.request.form["content"]
+    
+    current_time = int(time.time() * 1000)
+    
+    db.class_notifications.insert_one({
+        "user_id": u.id,
+        "class_id": u.class_id,
+        "content": content,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 qqbot_token = None
 qqbot_service_id = "fd44ac0a-74a9-453e-9a23-f2b2ffdce9f2"
 
