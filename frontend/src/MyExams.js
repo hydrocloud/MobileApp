@@ -48,8 +48,19 @@ export default class MyExams extends React.Component {
         )
     }
 
-    async componentDidMount() {
+    async loadExamDescription() {
+        this.setState({
+            examDescription: (
+                <ProgressBar indeterminate />
+            )
+        });
+
         let exams = JSON.parse(await network.makeRequest("POST", "/api/student/exams"));
+
+        this.setState({
+            examDescription: ""
+        });
+
         if(exams.err !== 0) {
             throw exams;
         }
@@ -65,6 +76,14 @@ export default class MyExams extends React.Component {
         this.setState({
             examDescription: desc
         });
+    }
+
+    async componentDidMount() {
+        this.setState({
+            examDescription: (
+                <Button colored raised onClick={() => this.loadExamDescription()}>展开</Button>
+            )
+        })
     }
 
     render() {
