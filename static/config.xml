@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="net.hydrocloud.mobileapp" version="0.0.5" xmlns="http://www.w3.org/ns/widgets" xmlns:gap = "http://phonegap.com/ns/1.0">
+<widget id="net.hydrocloud.mobileapp" version="0.0.6" xmlns="http://www.w3.org/ns/widgets" xmlns:gap = "http://phonegap.com/ns/1.0">
     <name>通中云平台</name>
     <content src="index.html" />
     <icon src="icons/mipmap-xhdpi/ic_launcher.png" />
