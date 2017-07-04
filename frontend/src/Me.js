@@ -62,6 +62,8 @@ export default class Me extends React.Component {
                 adminWidgets: (
                     <div>
                         <ManualVerificationManagement />
+                        <GlobalPushManagement />
+                        <AddArticle />
                     </div>
                 )
             });
@@ -103,8 +105,6 @@ export default class Me extends React.Component {
                 <ArticleList />
                 <MyExams />
                 {this.state.adminWidgets}
-                <GlobalPushManagement />
-                <AddArticle />
             </div>
         )
     }
