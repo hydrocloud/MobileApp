@@ -778,7 +778,7 @@ def on_api_admin_push_global():
 
     if db.articles.find_one({"id": article_id}) == None:
         return flask.jsonify({
-            "err": 0,
+            "err": 3,
             "msg": "Article not found"
         })
 
