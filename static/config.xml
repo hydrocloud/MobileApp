@@ -1,10 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="net.hydrocloud.mobileapp" version="0.1.0" xmlns="http://www.w3.org/ns/widgets" xmlns:gap="http://phonegap.com/ns/1.0">
+<widget id="net.hydrocloud.mobileapp" version="0.1.1" xmlns="http://www.w3.org/ns/widgets" xmlns:gap="http://phonegap.com/ns/1.0">
     <name>通中云平台</name>
     <content src="index.html" />
     <icon src="icons/mipmap-xhdpi/ic_launcher.png" />
     <plugin name="cordova-plugin-whitelist" source="npm" />
-    <!-- <allow-navigation href="http://*:5128/*" /> -->
     <allow-navigation href="https://oneidentity.me/*" />
     <allow-navigation href="https://app.hydrocloud.net/*" />
     <access origin="https://oneidentity.me" />
@@ -12,5 +11,12 @@
     <plugin name="cordova-plugin-file" source="npm" />
     <plugin name="jpush-phonegap-plugin" spec="~3.1.8">
         <variable name="APP_KEY" value="c8d4edb7e921685767e28338" />
+    </plugin>
+    <plugin name="cordova-plugin-crosswalk-webview" spec="~2.3.0">
+        <variable name="XWALK_VERSION" value="23+" />
+        <variable name="XWALK_LITEVERSION" value="xwalk_core_library_canary:17+" />
+        <variable name="XWALK_COMMANDLINE" value="--disable-pull-to-refresh-effect" />
+        <variable name="XWALK_MODE" value="embedded" />
+        <variable name="XWALK_MULTIPLEAPK" value="true" />
     </plugin>
 </widget>
