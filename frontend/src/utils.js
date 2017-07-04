@@ -9,3 +9,7 @@ export function getRelativeTime(t) {
         return "" + dtDays + " 天前";
     }
 }
+
+export function sleep(ms) {
+    return new Promise(cb => setTimeout(() => cb(), ms));
+}

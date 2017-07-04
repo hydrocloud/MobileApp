@@ -10,6 +10,7 @@ import requests
 import uuid
 import zhixue
 import random
+import jpush
 
 gevent.monkey.patch_all()
 
@@ -20,6 +21,9 @@ db = pymongo.MongoClient("127.0.0.1", 27017).HydroCloud_MobileApp
 
 with open(sys.argv[1], "rb") as f:
     cfg = json.loads(f.read().decode("utf-8"))
+
+jpush.app_key = cfg["jpush_app_key"]
+jpush.master_secret = cfg["jpush_master_secret"]
 
 class Session:
     def __init__(self, user_id, username):
@@ -550,7 +554,7 @@ def on_api_update_latest_version():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "version_code": 6,
+        "version_code": 100,
         "version_description": "各种 Bug 修复 & 新功能"
     })
 
@@ -748,6 +752,205 @@ def on_api_student_class_notification_add():
     return flask.jsonify({
         "err": 0,
         "msg": "OK"
+    })
+
+@app.route("/api/admin/push/global", methods = ["POST"])
+def on_api_admin_push_global():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    title = flask.request.form["title"]
+    content = flask.request.form["content"]
+    article_id = flask.request.form["article_id"]
+
+    current_time = int(time.time() * 1000)
+    notification_id = str(uuid.uuid4())
+
+    if db.articles.find_one({"id": article_id}) == None:
+        return flask.jsonify({
+            "err": 0,
+            "msg": "Article not found"
+        })
+
+    db.global_notifications.insert_one({
+        "id": notification_id,
+        "sender": sess.user_id,
+        "title": title,
+        "content": content,
+        "article_id": article_id,
+        "create_time": current_time
+    })
+
+    jpush.push_global_notification(title, content, {
+        "type": "global",
+        "id": notification_id
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/admin/article/add", methods = ["POST"])
+def on_api_admin_article_add():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    current_time = int(time.time() * 1000)
+    article_id = str(uuid.uuid4())
+
+    blog_article_id = int(flask.request.form["blog_article_id"])
+
+    url = "https://hydrocloud.net/archives/" + str(blog_article_id) + "/?format=raw"
+    data = requests.get(url).text
+
+    try:
+        title = data.split("<Title>")[1].split("</Title>")[0]
+        author = data.split("<Author>")[1].split("</Author>")[0]
+        content = data.split("<Content>")[1].split("</Content>")[0]
+    except:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Article parsing failed"
+        })
+
+    db.articles.insert_one({
+        "id": article_id,
+        "blog_article_id": blog_article_id,
+        "title": title,
+        "author": author,
+        "content": content,
+        "add_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "article_id": article_id
+    })
+
+@app.route("/api/device/register", methods = ["POST"])
+def on_api_device_register():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    jpush_id = flask.request.form["jpush_id"]
+
+    r = db.devices.find_one({
+        "jpush_id": jpush_id,
+        "user_id": sess.user_id
+    })
+    if r != None:
+        return flask.jsonify({
+            "err": 0,
+            "msg": "OK",
+            "device_id": r["id"]
+        })
+
+    device_id = str(uuid.uuid4())
+    current_time = int(time.time() * 1000)
+
+    db.devices.delete_many({
+        "jpush_id": jpush_id
+    })
+    db.devices.insert_one({
+        "id": device_id,
+        "jpush_id": jpush_id,
+        "user_id": sess.user_id,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "device_id": device_id
+    })
+
+@app.route("/api/device/global_notification/article_id", methods = ["POST"])
+def on_api_device_get_push_action():
+    notification_id = flask.request.form["notification_id"]
+    ntf = db.global_notifications.find_one({
+        "id": notification_id
+    })
+    if ntf == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Notification not found"
+        })
+    
+    article_id = ntf.get("article_id", None)
+    if article_id == None:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "No related article"
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "article_id": article_id
+    })
+
+@app.route("/api/article/get", methods = ["POST"])
+def on_api_article_get():
+    article_id = flask.request.form["id"]
+    article = db.articles.find_one({
+        "id": article_id
+    })
+
+    if article == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Article not found"
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "id": article["id"],
+        "title": article["title"],
+        "author": article["author"],
+        "content": article["content"]
+    })
+
+@app.route("/api/article/list", methods = ["POST"])
+def on_api_article_list():
+    articles = []
+    for item in db.articles.find({}).sort("add_time", -1).limit(10):
+        articles.append({
+            "id": item["id"],
+            "title": item["title"],
+            "author": item["author"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "articles": articles
     })
 
 qqbot_token = None

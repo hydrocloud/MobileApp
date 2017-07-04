@@ -5,6 +5,7 @@ import ReactDOM from "react-dom";
 import { Card, Button, Textfield, ProgressBar } from "react-mdl";
 
 import * as view from "./view.js";
+import * as push from "./push.js";
 import Verify from "./Verify.js";
 import Welcome from "./Welcome.js";
 import MyInfo from "./MyInfo.js";
@@ -16,9 +17,14 @@ import WatchedQQGroupMessages from "./WatchedQQGroupMessages.js";
 import ClassNotifications from "./ClassNotifications.js";
 import AddClassNotification from "./AddClassNotification.js";
 import ManualVerificationManagement from "./ManualVerificationManagement.js";
+import GlobalPushManagement from "./GlobalPushManagement.js";
+import AddArticle from "./AddArticle.js";
+import ArticleList from "./ArticleList.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
+
+let prepared = false;
 
 export default class Me extends React.Component {
     constructor(props) {
@@ -40,8 +46,14 @@ export default class Me extends React.Component {
             return;
         }
         qq.init();
+        push.init();
         this.loadQQWidgets();
         this.loadAdminWidgets();
+        prepared = true;
+    }
+
+    static isPrepared() {
+        return prepared;
     }
 
     loadAdminWidgets() {
@@ -88,8 +100,11 @@ export default class Me extends React.Component {
                 <QQConnection />
                 {this.state.qqWidgets}
                 <ClassNotifications />
+                <ArticleList />
                 <MyExams />
                 {this.state.adminWidgets}
+                <GlobalPushManagement />
+                <AddArticle />
             </div>
         )
     }
