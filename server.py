@@ -18,6 +18,7 @@ app = flask.Flask(__name__)
 app_internal = flask.Flask(__name__)
 cfg = {}
 db = pymongo.MongoClient("127.0.0.1", 27017).HydroCloud_MobileApp
+user_notification_queue = []
 
 with open(sys.argv[1], "rb") as f:
     cfg = json.loads(f.read().decode("utf-8"))
@@ -181,6 +182,43 @@ class User:
         else:
             exams = cached["exams"]
         return exams
+    
+    def push_notification(self, title, content, details):
+        notification_id = str(uuid.uuid4())
+        current_time = int(time.time() * 1000)
+
+        db.user_notifications.insert_one({
+            "id": notification_id,
+            "user_id": self.id,
+            "title": title,
+            "content": content,
+            "details": details,
+            "create_time": current_time
+        })
+        for d in db.devices.find({"user_id": self.id}):
+            jpush.push_user_notification(d["jpush_id"], title, content, {
+                "type": "user",
+                "id": notification_id
+            })
+    
+    def get_notification_details(self, notification_id):
+        r = db.user_notifications.find_one({
+            "id": notification_id,
+            "user_id": self.id
+        })
+        if r == None:
+            return None
+        return r["details"]
+
+class UserNotification:
+    def __init__(self, u, title, content, details):
+        if isinstance(u, User) == False:
+            raise Exception("UserNotification requires a user")
+        
+        self.user = u
+        self.title = title
+        self.content = content
+        self.details = details
 
 class Class:
     def __init__(id = "", name = "", school_id = "", school_name = "", admins = []):
@@ -915,6 +953,30 @@ def on_api_device_get_push_action():
         "article_id": article_id
     })
 
+@app.route("/api/device/user_notification/details", methods = ["POST"])
+def on_api_device_user_notification_details():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+
+    details = u.get_notification_details(flask.request.form["notification_id"])
+    if details == None:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Notification not found"
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "details": details
+    })
+
 @app.route("/api/article/get", methods = ["POST"])
 def on_api_article_get():
     article_id = flask.request.form["id"]
@@ -1057,10 +1119,20 @@ def on_api_qqbot_add_user_watched_group_messages():
         if user_id == None:
             fail_count += 1
             continue
+
+        u = User.get_by_id(user_id)
+        if u == None:
+            fail_count += 1
+            continue
+        
+        from_qq = m["from_qq"]
+        from_group = m["from_group"]
+        
+        user_notification_queue.append(UserNotification(u, "关注的 QQ 群消息", "群: " + from_group, {}))
         db.user_qq_watched_group_messages.insert_one({
             "user_id": user_id,
-            "from_qq": m["from_qq"],
-            "from_group": m["from_group"],
+            "from_qq": from_qq,
+            "from_group": from_group,
             "content": m["content"],
             "create_time": m["create_time"]
         })
@@ -1071,5 +1143,25 @@ def on_api_qqbot_add_user_watched_group_messages():
         "fail_count": fail_count
     })
 
+def user_push_thread():
+    global user_notification_queue
+
+    while True:
+        try:
+            q = user_notification_queue
+            user_notification_queue = []
+
+            for p in q:
+                if isinstance(p, UserNotification) == False:
+                    print("Not a UserNotification")
+                    continue
+                p.user.push_notification(p.title, p.content, p.details)
+                print("Pushed a notification to user " + p.user.id)
+        except:
+            print("user_push_thread: Caught exception")
+        
+        time.sleep(1)
+
+gevent.spawn(user_push_thread)
 #gevent.spawn(lambda: gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["internal_service_port"]), app_internal).serve_forever())
 gevent.pywsgi.WSGIServer(("0.0.0.0", cfg["service_port"]), app).serve_forever()

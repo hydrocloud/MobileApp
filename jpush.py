@@ -36,3 +36,37 @@ def push_global_notification(title, content, extras = {}):
     if err != None:
         raise Exception("Push failed: " + json.dumps(err))
 
+def push_user_notification(jpush_id, title, content, extras = {}):
+    auth_str = base64.b64encode((app_key + ":" + master_secret).encode()).decode()
+    #print(auth_str)
+
+    notification = {
+        "android": {
+            "alert": content,
+            "title": title,
+            "extras": extras
+        },
+        "ios": {
+            "alert": content,
+            "extras": extras
+        }
+    }
+
+    req = {
+        "platform": "all",
+        "audience": {
+            "registration_id": [
+                jpush_id
+            ]
+        },
+        "notification": notification
+    }
+
+    r = requests.post("https://api.jpush.cn/v3/push", json = req, headers = {
+        "Authorization": "Basic " + auth_str
+    }).json()
+    print(r)
+
+    err = r.get("error", None)
+    if err != None:
+        raise Exception("Push failed: " + json.dumps(err))

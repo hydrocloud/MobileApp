@@ -51,6 +51,8 @@ function handleOpenNotification(ev) {
     let notificationType = ev.extras.type;
     if(notificationType == "global") {
         handleGlobalNotification(ev.extras.id);
+    } else if(notificationType == "user") {
+        handleUserNotifcation(ev.extras.id);
     }
 }
 
@@ -74,4 +76,16 @@ async function handleGlobalNotification(id) {
 
     Article.preload(article);
     view.dispatch(Article);
+}
+
+async function handleUserNotifcation(id) {
+    let details = JSON.parse(await network.makeRequest("POST", "/api/device/user_notification/details", {
+        notification_id: id
+    }));
+    if(details.err !== 0) {
+        console.log(details);
+        return;
+    }
+    details = details.details;
+    console.log(details);
 }
