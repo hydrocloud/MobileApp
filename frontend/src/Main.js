@@ -19,6 +19,7 @@ export default class Main extends React.Component {
         this.setState({
             "content": ( <TargetComponent /> )
         });
+        document.getElementById("content-container").scrollTop = 0;
     }
 
     async checkUpdate() {
@@ -40,7 +41,7 @@ export default class Main extends React.Component {
                     <Header title={
                         <span style={{marginLeft: "-50px"}}>通中云平台</span>
                     } />
-                    <Content>
+                    <Content id="content-container">
                         <Grid>
                             <Cell col={12} align="middle" id="main-content">
                                 {this.state.content}
