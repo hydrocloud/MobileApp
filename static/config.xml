@@ -1,11 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="net.hydrocloud.mobileapp" version="0.1.2" xmlns="http://www.w3.org/ns/widgets" xmlns:gap="http://phonegap.com/ns/1.0">
+<widget id="net.hydrocloud.mobileapp" version="0.1.3" xmlns="http://www.w3.org/ns/widgets" xmlns:gap="http://phonegap.com/ns/1.0">
     <name>通中云平台</name>
     <content src="index.html" />
     <icon src="icons/mipmap-xhdpi/ic_launcher.png" />
     <plugin name="cordova-plugin-whitelist" source="npm" />
     <allow-navigation href="https://oneidentity.me/*" />
     <allow-navigation href="https://app.hydrocloud.net/*" />
+    <allow-navigation href="https://hydrocloud.net/*" />
     <access origin="https://oneidentity.me" />
     <access origin="https://app.hydrocloud.net" />
     <plugin name="cordova-plugin-file" source="npm" />

@@ -44,3 +44,7 @@ h3 {
     opacity: 0;
     visibility: hidden; 
 }
+
+img {
+    width: 100%;
+}

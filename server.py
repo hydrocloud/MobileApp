@@ -592,7 +592,7 @@ def on_api_update_latest_version():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "version_code": 102,
+        "version_code": 103,
         "version_description": "各种 Bug 修复 & 新功能"
     })
 

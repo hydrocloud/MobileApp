@@ -6,6 +6,7 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 
 import * as view from "./view.js";
 import Verify from "./Verify.js";
+import TextCanvas from "./TextCanvas.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -58,6 +59,8 @@ export default class QQConnection extends React.Component {
         });
     }
 
+    draw
+
     async requestConnect() {
         this.setState({
             info: ( <ProgressBar indeterminate /> )
@@ -77,7 +80,8 @@ export default class QQConnection extends React.Component {
                 }}>
                     <span>请将你的用户名和以下数字提供给我们的 QQ 机器人 (3524780464) 来验证:</span><br />
                     <strong>{reqId}</strong><br />
-                    <span>在标准的机器人实现中，你通常只需发送指令 <code>/connect {user.info.username} {reqId}</code> 即可。</span><br />
+                    <span>在标准的机器人实现中，你通常只需发送以下指令即可:</span><br />
+                    <TextCanvas fontSize={14} text={"/connect " + user.info.username + " " + reqId} /><br />
                     <span>机器人提示关联成功后，请点击确认。</span><br />
                     <Button colored raised onClick={() => this.showConnectStatus()}>确认</Button>
                 </div>
