@@ -1,3 +1,4 @@
-export const CLOUD_PREFIX = "";
-export const VERSION_CODE = 103;
-export const VERSION_STR = "0.1.3";
+//export const CLOUD_PREFIX = "";
+export const CLOUD_PREFIX = "https://app.hydrocloud.net";
+export const VERSION_CODE = 200;
+export const VERSION_STR = "0.2.0";

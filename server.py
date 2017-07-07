@@ -51,6 +51,8 @@ class User:
         self.zhixue_username = ""
         self.zhixue_password = ""
 
+        self.pm_disabled = False
+
         self.disabled = False
     
     @staticmethod
@@ -62,6 +64,8 @@ class User:
             return None
         
         ret = User(id = id, name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        ret.pm_disabled = u.get("pm_disabled", False)
+
         if with_credentials:
             ret.zhixue_username = u["zhixue_username"]
             ret.zhixue_password = u["zhixue_password"]
@@ -77,6 +81,8 @@ class User:
             return None
         
         ret = User(id = u["id"], name = name, role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        ret.pm_disabled = u.get("pm_disabled", False)
+
         if with_credentials:
             ret.zhixue_username = u["zhixue_username"]
             ret.zhixue_password = u["zhixue_password"]
@@ -98,6 +104,7 @@ class User:
                 "class_name": self.class_name,
                 "zhixue_username": self.zhixue_username,
                 "zhixue_password": self.zhixue_password,
+                "pm_disabled": self.pm_disabled,
                 "disabled": self.disabled
             }
         })
@@ -115,6 +122,7 @@ class User:
             "class_name": self.class_name,
             "zhixue_username": self.zhixue_username,
             "zhixue_password": self.zhixue_password,
+            "pm_disabled": self.pm_disabled,
             "disabled": self.disabled
         })
     
@@ -592,7 +600,7 @@ def on_api_update_latest_version():
     return flask.jsonify({
         "err": 0,
         "msg": "OK",
-        "version_code": 103,
+        "version_code": 200,
         "version_description": "各种 Bug 修复 & 新功能"
     })
 
@@ -1013,6 +1021,246 @@ def on_api_article_list():
         "err": 0,
         "msg": "OK",
         "articles": articles
+    })
+
+@app.route("/api/pm/send", methods = ["POST"])
+def on_api_pm_send():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    if u.pm_disabled:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "The user is not allowed to send private messages."
+        })
+    
+    t = User.get_by_name(flask.request.form["target"])
+    if t == None:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Target user not found"
+        })
+
+    if db.pm_blocks.find_one({ "from": u.id, "to": t.id }) != None:
+        return flask.jsonify({
+            "err": 4,
+            "msg": "Blocked"
+        })
+    
+    pm_id = str(uuid.uuid4())
+    content = flask.request.form["content"]
+    current_time = int(time.time() * 1000)
+    
+    db.private_messages.insert_one({
+        "id": pm_id,
+        "from": u.id,
+        "to": t.id,
+        "content":  content,
+        "create_time": current_time
+    })
+
+    user_notification_queue.append(UserNotification(t, "新的私信", u.real_name + " (" + u.name + ")", {
+        "subtype": "pm",
+        "pm_id": pm_id
+    }))
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "pm_id": pm_id
+    })
+
+@app.route("/api/pm/list", methods = ["POST"])
+def on_api_pm_list():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    limit = int(flask.request.form["limit"])
+    if limit <= 0:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Invalid limit"
+        })
+
+    pms = db.private_messages.find({ "to": u.id }).sort("create_time", -1).limit(limit)
+    to_me = []
+
+    for pm in pms:
+        to_me.append({
+            "id": pm["id"],
+            "from": User.get_by_id(pm["from"]).name,
+            "from_real_name": User.get_by_id(pm["from"]).real_name,
+            "time": pm["create_time"]
+        })
+    
+    pms = db.private_messages.find({ "from": u.id }).sort("create_time", -1).limit(limit)
+    from_me = []
+
+    for pm in pms:
+        from_me.append({
+            "id": pm["id"],
+            "to": User.get_by_id(pm["to"]).name,
+            "to_real_name": User.get_by_id(pm["to"]).real_name,
+            "time": pm["create_time"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "from_me": from_me,
+        "to_me": to_me
+    })
+
+@app.route("/api/pm/conversation", methods = ["POST"])
+def on_api_pm_conversation():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    t = User.get_by_name(flask.request.form["target"])
+
+    pms = db.private_messages.find({ "from": t.id, "to": u.id }).sort("create_time", -1)
+    to_me = []
+
+    for pm in pms:
+        to_me.append({
+            "id": pm["id"],
+            "content": pm["content"],
+            "time": pm["create_time"]
+        })
+    
+    pms = db.private_messages.find({ "from": u.id, "to": t.id }).sort("create_time", -1)
+    from_me = []
+
+    for pm in pms:
+        from_me.append({
+            "id": pm["id"],
+            "content": pm["content"],
+            "time": pm["create_time"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "from_me": from_me,
+        "to_me": to_me,
+        "target_real_name": t.real_name
+    })
+
+@app.route("/api/pm/details", methods = ["POST"])
+def on_api_pm_details():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    pm_id = flask.request.form["pm_id"]
+
+    pm = db.private_messages.find_one({
+        "id": pm_id,
+        "to": u.id
+    })
+    if pm == None:
+        pm = db.private_messages.find_one({
+            "id": pm_id,
+            "from": u.id
+        })
+        if pm == None:
+            return flask.jsonify({
+                "err": 2,
+                "msg": "Private message not found"
+            })
+        
+    from_u = User.get_by_id(pm["from"])
+    to_u = User.get_by_id(pm["to"])
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "pm": {
+            "id": pm["id"],
+            "from": from_u.name,
+            "to": to_u.name,
+            "from_real_name": from_u.real_name,
+            "to_real_name": to_u.real_name,
+            "content": pm["content"],
+            "time": pm["create_time"]
+        }
+    })
+
+@app.route("/api/pm/block", methods = ["POST"])
+def on_api_pm_block():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    f = User.get_by_name(flask.request.form["from"])
+
+    if db.pm_blocks.find_one({ "from": f.id, "to": u.id }) != None:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Already blocked"
+        })
+    
+    block_id = str(uuid.uuid4())
+    current_time = int(time.time() * 1000)
+    
+    db.pm_blocks.insert_one({
+        "id": block_id,
+        "from": f.id,
+        "to": u.id,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/pm/block_list", methods = ["POST"])
+def on_api_pm_block_list():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    result = []
+
+    for b in db.pm_blocks.find({ "to": u.id }).sort("create_time", -1):
+        result.append({
+            "id": b["id"],
+            "from": User.get_by_id(b["from"]).name,
+            "time": b["create_time"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "block_list": result
     })
 
 qqbot_token = None

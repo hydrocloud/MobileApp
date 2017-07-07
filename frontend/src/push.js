@@ -3,6 +3,8 @@ import * as utils from "./utils.js";
 import * as view from "./view.js";
 import Article from "./Article.js";
 import Me from "./Me.js";
+import Chat from "./Chat.js";
+import ChatView from "./ChatView.js";
 
 function getRegistrationId() {
     return new Promise(cb => {
@@ -45,18 +47,36 @@ export async function init() {
         window.plugins.jPushPlugin.openNotification = {};
         handleOpenNotification(ev);
     }
+
+    document.addEventListener("jpush.receiveNotification", handleRecvNotification);
+    if(Object.keys(window.plugins.jPushPlugin.receiveNotification).length > 0) {
+        let ev = window.plugins.jPushPlugin.receiveNotification;
+        window.plugins.jPushPlugin.receiveNotification = {};
+        handleRecvNotification(ev);
+    }
 }
 
 function handleOpenNotification(ev) {
     let notificationType = ev.extras.type;
     if(notificationType == "global") {
-        handleGlobalNotification(ev.extras.id);
+        handleGlobalNotification(ev.extras.id, false);
     } else if(notificationType == "user") {
-        handleUserNotifcation(ev.extras.id);
+        handleUserNotifcation(ev.extras.id, false);
     }
 }
 
-async function handleGlobalNotification(id) {
+function handleRecvNotification(ev) {
+    let notificationType = ev.extras.type;
+    if(notificationType == "global") {
+        handleGlobalNotification(ev.extras.id, true);
+    } else if(notificationType == "user") {
+        handleUserNotifcation(ev.extras.id, true);
+    }
+}
+
+async function handleGlobalNotification(id, isRecv = false) {
+    if(isRecv) return;
+
     let articleId = JSON.parse(await network.makeRequest("POST", "/api/device/global_notification/article_id", {
         notification_id: id
     })).article_id;
@@ -78,7 +98,7 @@ async function handleGlobalNotification(id) {
     view.dispatch(Article);
 }
 
-async function handleUserNotifcation(id) {
+async function handleUserNotifcation(id, isRecv = false) {
     let details = JSON.parse(await network.makeRequest("POST", "/api/device/user_notification/details", {
         notification_id: id
     }));
@@ -88,4 +108,33 @@ async function handleUserNotifcation(id) {
     }
     details = details.details;
     console.log(details);
+
+    if(details.subtype == "pm") {
+        handlePMRecv(details.pm_id, isRecv);
+    } else if(!details.subtype) {
+    } else {
+        if(!isRecv) {
+            alert("未知的消息类型: " + details.subtype + " 。请尝试更新 App 到最新版本。");
+        }
+    }
+}
+
+async function handlePMRecv(id, isRecv) {
+    let pm = JSON.parse(await network.makeRequest("POST", "/api/pm/details", {
+        pm_id: id
+    }));
+    if(pm.err !== 0) {
+        console.log(pm);
+        return;
+    }
+    pm = pm.pm;
+
+    if(!Chat.onRecv(pm)) {
+        if(isRecv) return;
+
+        Chat.preload({
+            to: pm.from
+        });
+        view.dispatch(ChatView);
+    }
 }

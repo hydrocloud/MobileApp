@@ -20,6 +20,7 @@ import ManualVerificationManagement from "./ManualVerificationManagement.js";
 import GlobalPushManagement from "./GlobalPushManagement.js";
 import AddArticle from "./AddArticle.js";
 import ArticleList from "./ArticleList.js";
+import ChatList from "./ChatList.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -104,6 +105,7 @@ export default class Me extends React.Component {
                 <ClassNotifications />
                 <ArticleList />
                 <MyExams />
+                <ChatList />
                 {this.state.adminWidgets}
             </div>
         )
