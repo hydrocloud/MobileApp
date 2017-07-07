@@ -714,6 +714,86 @@ def on_api_user_qq_connect_watched_group_messages():
         "messages": msgs
     })
 
+@app.route("/api/user/service_auth_status", methods = ["POST"])
+def on_api_user_service_auth_status():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    r = requests.post("https://oneidentity.me/services/api/check_auth", data = {
+        "serviceId": cfg["service_id"],
+        "secretKey": cfg["secret_key"],
+        "userId": sess.user_id,
+        "targetServiceId": cfg["service_id"]
+    }).json()
+
+    if r["err"] != 0:
+        authorized = False
+    else:
+        authorized = True
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "authorized": authorized
+    })
+
+@app.route("/api/user/third_party_card/get_all", methods = ["POST"])
+def on_api_user_third_party_card_get_all():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+
+    cards = []
+
+    for c in db.cp_user_cards.find({ "user_id": u.id }).sort("create_time", 1):
+        cards.append({
+            "id": c["id"],
+            "title": c["title"],
+            "service_id": c["service_id"],
+            "service_name": c["service_name"],
+            "backend_url": c["backend_url"],
+            "elements": c["elements"],
+            "script_code": c.get("script_code", ""),
+            "create_time": c["create_time"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "cards": cards
+    })
+
+@app.route("/api/user/third_party_card/remove", methods = ["POST"])
+def on_api_user_third_party_card_remove():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    card_id = flask.request.form["card_id"]
+
+    db.cp_user_cards.delete_one({
+        "id": card_id,
+        "user_id": u.id
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/student/class_notification/recent", methods = ["POST"])
 def on_api_student_class_notification_recent():
     sess = sessions.get(flask.request.cookies["token"], None)
@@ -1389,6 +1469,114 @@ def on_api_qqbot_add_user_watched_group_messages():
         "err": 0,
         "msg": "OK",
         "fail_count": fail_count
+    })
+
+@app.route("/api/card_provider/get_session", methods = ["POST"])
+def on_api_card_provider_get_session():
+    token = flask.request.form["token"]
+    info = requests.post("https://oneidentity.me/services/api/get_info_by_token", data = {
+        "token": token
+    }).json()
+
+    if info["err"] != 0:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Verification failed"
+        })
+    
+    service_id = info["service_id"]
+    
+    u = User.get_by_id(flask.request.form["user_id"])
+    if u == None:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "User not found"
+        })
+    
+    r = requests.post("https://oneidentity.me/services/api/check_auth", data = {
+        "serviceId": cfg["service_id"],
+        "secretKey": cfg["secret_key"],
+        "userId": u.id,
+        "targetServiceId": service_id
+    }).json()
+
+    if r["err"] != 0:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Our service is not authorized by the user"
+        })
+    
+    if r["status"] != True:
+        return flask.jsonify({
+            "err": 4,
+            "msg": "Your service is not authorized by the user"
+        })
+    
+    session_token = str(uuid.uuid4())
+    current_time = int(time.time() * 1000)
+
+    db.cp_sessions.delete_many({
+        "user_id": u.id,
+        "service_id": info["service_id"]
+    })
+
+    db.cp_sessions.insert_one({
+        "token": session_token,
+        "user_id": u.id,
+        "service_id": info["service_id"],
+        "service_name": info["service_name"],
+        "create_time": current_time
+    })
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "token": session_token
+    })
+
+@app.route("/api/card_provider/add_card", methods = ["POST"])
+def on_api_card_provider_add_card():
+    token = flask.request.form["token"]
+    sess = db.cp_sessions.find_one({
+        "token": token
+    })
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess["user_id"])
+    card = json.loads(flask.request.form["card"])
+
+    card_id = str(uuid.uuid4())
+    title = str(card["title"])
+    backend_url = str(card.get("backend_url", ""))
+    elements = list(card["elements"])
+    script_code = str(card.get("script_code", ""))
+    current_time = int(time.time() * 1000)
+
+    db.cp_user_cards.delete_many({
+        "user_id": u.id,
+        "service_id": sess["service_id"],
+        "title": title
+    })
+
+    db.cp_user_cards.insert_one({
+        "id": card_id,
+        "user_id": u.id,
+        "service_id": sess["service_id"],
+        "service_name": sess["service_name"],
+        "title": title,
+        "backend_url": backend_url,
+        "elements": elements,
+        "script_code": script_code,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "card_id": card_id
     })
 
 def user_push_thread():

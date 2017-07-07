@@ -10,6 +10,7 @@ import Verify from "./Verify.js";
 import Welcome from "./Welcome.js";
 import MyInfo from "./MyInfo.js";
 import GlobalNotification from "./GlobalNotification.js";
+import ServiceAuthNotice from "./ServiceAuthNotice.js";
 import MyExams from "./MyExams.js";
 import Greetings from "./Greetings.js";
 import QQConnection from "./QQConnection.js";
@@ -21,6 +22,7 @@ import GlobalPushManagement from "./GlobalPushManagement.js";
 import AddArticle from "./AddArticle.js";
 import ArticleList from "./ArticleList.js";
 import ChatList from "./ChatList.js";
+import ThirdPartyCards from "./ThirdPartyCards.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -98,6 +100,7 @@ export default class Me extends React.Component {
         return (
             <div>
                 <Greetings />
+                <ServiceAuthNotice />
                 <MyInfo />
                 <GlobalNotification />
                 <QQConnection />
@@ -106,6 +109,7 @@ export default class Me extends React.Component {
                 <ArticleList />
                 <MyExams />
                 <ChatList />
+                <ThirdPartyCards />
                 {this.state.adminWidgets}
             </div>
         )
