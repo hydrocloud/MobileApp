@@ -37,9 +37,9 @@ export default class ThirdPartyCard extends React.Component {
                         console.log(e);
                         ret = null;
                     }
-                    cb(ret);
+                    return cb(ret);
                 } else {
-                    reject("无法加载沙箱环境。拒绝执行脚本。请设置 window.unsafeScriptExec = true 来允许不安全的脚本执行。");
+                    return reject("无法加载沙箱环境。拒绝执行脚本。请设置 window.unsafeScriptExec = true 来允许不安全的脚本执行。");
                 }
             }
 
@@ -54,7 +54,7 @@ export default class ThirdPartyCard extends React.Component {
                     closed = true;
                     iab.close();
                     console.log("Execution timeout (" + timeout + " ms)");
-                    cb(null);
+                    reject("执行超时");
                 }, timeout);
 
                 iab.executeScript({
@@ -169,7 +169,7 @@ export default class ThirdPartyCard extends React.Component {
                             });
                             console.log(r);
                         } catch(e) {
-                            alert("执行失败");
+                            alert("执行失败: " + e);
                             console.log(e);
                             return;
                         }
