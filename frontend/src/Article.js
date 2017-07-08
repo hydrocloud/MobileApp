@@ -7,7 +7,6 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
-import Me from "./Me.js";
 import ClassNotificationView from "./ClassNotificationView.js";
 import ReactMarkdown from "react-markdown";
 const toMarkdown = require("to-markdown");
@@ -45,7 +44,6 @@ export default class Article extends React.Component {
                 <p style={{color: "#7F7F7F"}}>{this.state.author}</p>
                 <ReactMarkdown source={toMarkdown(this.state.content)} />
                 <p style={{color: "#7F7F7F"}}>文章 ID: <span style={{userSelect: "auto"}}>{this.state.id}</span></p>
-                <Button colored onClick={() => view.dispatch(Me)}>返回</Button>
             </Card>
         )
     }

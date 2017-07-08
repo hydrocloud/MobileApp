@@ -7,7 +7,6 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
-import Me from "./Me.js";
 import ClassNotificationView from "./ClassNotificationView.js";
 import ReactMarkdown from "react-markdown";
 import Chat from "./Chat.js";
@@ -26,8 +25,7 @@ export default class ChatView extends React.Component {
     render() {
         return (
             <Card shadow={0} className="main-card">
-                <Chat /><br />
-                <Button colored onClick={() => view.dispatch(Me)}>返回</Button>
+                <Chat />
             </Card>
         )
     }

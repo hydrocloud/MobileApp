@@ -5,7 +5,6 @@ import ReactDOM from "react-dom";
 import { Card, Button, Textfield, ProgressBar } from "react-mdl";
 
 import * as view from "./view.js";
-import Me from "./Me.js";
 import Welcome from "./Welcome.js";
 import Verify from "./Verify.js";
 import EventHub from "./EventHub.js";
@@ -84,8 +83,7 @@ export default class MyInfo extends React.Component {
         clearCookies();
         delete localStorage.persistentToken;
 
-        user.info.reset();
-        view.dispatch(Welcome);
+        EventHub.getDefault().fireEvent("logout");
     }
     
     render() {

@@ -321,6 +321,13 @@ def on_api_user_login():
     }))
     return resp
 
+@app.route("/api/ping", methods = ["POST"])
+def on_api_ping():
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/user/auto_login", methods = ["POST"])
 def on_api_user_auto_login():
     pt = flask.request.form["persistent_token"]

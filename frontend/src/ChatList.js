@@ -7,7 +7,6 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
-import Me from "./Me.js";
 import ClassNotificationView from "./ClassNotificationView.js";
 import ReactMarkdown from "react-markdown";
 import Chat from "./Chat.js";

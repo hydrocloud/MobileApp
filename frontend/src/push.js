@@ -2,7 +2,6 @@ import * as network from "./network.js";
 import * as utils from "./utils.js";
 import * as view from "./view.js";
 import Article from "./Article.js";
-import Me from "./Me.js";
 import Chat from "./Chat.js";
 import ChatView from "./ChatView.js";
 
@@ -90,9 +89,7 @@ async function handleGlobalNotification(id, isRecv = false) {
         return;
     }
 
-    while(!Me.isPrepared()) {
-        await utils.sleep(10);
-    }
+    await utils.sleep(500);
 
     Article.preload(article);
     view.dispatch(Article);

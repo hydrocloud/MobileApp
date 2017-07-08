@@ -30,6 +30,10 @@ h3 {
     -webkit-box-shadow: 0 0 10px rgba(63, 81, 181, 0.3);
 }
 
+#main-drawer {
+    border: none;
+}
+
 #main-content {
     align-items: center;
     display: flex;

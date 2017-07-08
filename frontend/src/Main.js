@@ -29,8 +29,12 @@ import ArticleList from "./ArticleList.js";
 import ChatList from "./ChatList.js";
 import ThirdPartyCards from "./ThirdPartyCards.js";
 import EventHub from "./EventHub.js";
+import FullScreenNotifcation from "./FullScreenNotification.js";
+import * as user from "./user.js";
 const config = require("./config.js");
 const utils = require("./utils.js");
+const qq = require("./qq.js");
+const push = require("./push.js");
 
 export default class Main extends React.Component {
     constructor(props) {
@@ -39,7 +43,9 @@ export default class Main extends React.Component {
             content: "",
             loggedIn: false,
             currentView: null,
-            hideHeader: false
+            hideHeader: false,
+            fullScreenNotifcation: "",
+            isAdmin: user.info.isAdmin || false
         };
         this.layoutRef = null;
         this.mainDrawerRef = null;
@@ -59,10 +65,12 @@ export default class Main extends React.Component {
         while(true) {
             try {
                 await EventHub.getDefault().waitForEvent("login_complete");
+                user.info.update();
                 this.setState({
                     loggedIn: true
                 });
-                view.dispatch(MyInfo);
+                push.init();
+                view.dispatch(Watched);
                 await utils.sleep(100);
             } catch(e) {
                 console.log(e);
@@ -114,11 +122,96 @@ export default class Main extends React.Component {
         }
     }
 
+    async handleNetworkError() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("network_error");
+
+                let onClose;
+                let closePromise = new Promise(cb => onClose = () => {
+                    onClose = () => {};
+                    cb();
+                });
+
+                this.setState({
+                    fullScreenNotifcation: (
+                        <FullScreenNotifcation text="网络错误" onClose={() => onClose()} />
+                    )
+                });
+
+                EventHub.getDefault().waitForEvent("network_ok").then(() => onClose());
+
+                await closePromise;
+                this.setState({
+                    fullScreenNotifcation: ""
+                });
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    async handleGeneralError() {
+        while(true) {
+            try {
+                let details = await EventHub.getDefault().waitForEvent("error");
+                console.log(details);
+
+                let onClose;
+                let closePromise = new Promise(cb => onClose = cb);
+
+                this.setState({
+                    fullScreenNotifcation: (
+                        <FullScreenNotifcation text="内部错误" onClose={() => onClose()} />
+                    )
+                });
+                await closePromise;
+                this.setState({
+                    fullScreenNotifcation: ""
+                });
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    async handleUserInfoUpdate() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("user_info_update");
+                if(!user.info.verified) {
+                    view.dispatch(Verify);
+                }
+                this.setState({
+                    isAdmin: user.info.isAdmin
+                });
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    async handleUserLogout() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("logout")
+                user.info.reset();
+                view.dispatch(Welcome);
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
     componentDidMount() {
         this.checkUpdate();
         this.waitForLogin();
         this.handleViewDispatch();
         this.handleHideHeader();
+        this.handleNetworkError();
+        this.handleGeneralError();
+        this.handleUserInfoUpdate();
+        this.handleUserLogout();
         document.addEventListener("backbutton", () => this.onBackButton(), false);
     }
 
@@ -131,8 +224,7 @@ export default class Main extends React.Component {
                     <NavigationItem target={Watched} currentView={this.state.currentView} label="关注" />
                     <NavigationItem target={Activities} currentView={this.state.currentView} label="动态" />
                     <NavigationItem target={ThirdPartyCards} currentView={this.state.currentView} label="小工具" />
-                    <NavigationItem target={Settings} currentView={this.state.currentView} label="设置" />
-                    <NavigationItem target={Admin} currentView={this.state.currentView} label="管理" />
+                    <NavigationItem disabled={!this.state.isAdmin} target={Admin} currentView={this.state.currentView} label="管理" />
                     <NavigationItem target={About} currentView={this.state.currentView} label="关于" />
                 </Navigation>
             );
@@ -161,6 +253,7 @@ export default class Main extends React.Component {
                         </Grid>
                     </Content>
                 </Layout>
+                <div>{this.state.fullScreenNotifcation}</div>
             </div>
         );
     }
@@ -174,7 +267,7 @@ class NavigationItem extends React.Component {
 
     render() {
         if(this.props.disabled === true) {
-            return "";
+            return null;
         }
 
         let style = {};

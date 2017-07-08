@@ -61,9 +61,15 @@ export default class SidebarUserInfo extends React.Component {
     render() {
         try {
             return (
-                <div onClick={() => view.dispatch(Settings)} style={{width: "100%", paddingLeft: "20px"}}>
+                <div onClick={() => view.dispatch(Settings)} style={{
+                    width: "100%",
+                    paddingLeft: "20px",
+                    backgroundColor: "rgb(3, 169, 244)",
+                    color: "#FFFFFF"
+                }}>
                     <h5>{this.state.user.name}</h5>
-                    <span style={{fontSize: "14px", color: "#7F7F7F"}}>{this.state.user.className}</span>
+                    <span style={{fontSize: "14px"}}>{this.state.user.className}</span>
+                    <div style={{height: "20px"}}></div>
                 </div>
             );
         } catch(e) {

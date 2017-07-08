@@ -61,7 +61,7 @@ export default class ManualVerificationManagement extends React.Component {
     render() {
         return (
             <Card shadow={0} className="main-card">
-                <h3>用户验证管理</h3>
+                <h3>用户验证</h3>
                 <form action="javascript:;" style={{display: this.state.confirming ? "none" : "block"}}>
                     <Textfield
                         label="用户名"

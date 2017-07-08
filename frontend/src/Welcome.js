@@ -8,14 +8,12 @@ const user = require("./user.js");
 const config = require("./config.js");
 import EventHub from "./EventHub.js";
 
-import Me from "./Me.js";
-
 export default class Welcome extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
             loggingIn: false,
-            requestingLogin: false
+            showLoginContainer: false
         };
     }
 
@@ -73,33 +71,40 @@ export default class Welcome extends React.Component {
         window.oneidentity.disableStyles();
 
         this.setState({
-            requestingLogin: true
+            loggingIn: true,
+            showLoginContainer: true
         });
         
         let loginContainer = document.getElementById("login-container");
         const clientToken = await window.oneidentity.login(loginContainer, false, config.CLOUD_PREFIX + "/api/auth/callback?request_id=" + requestId);
         
         this.setState({
-            requestingLogin: false
+            showLoginContainer: false
         });
-
-        this.setState({ loggingIn: true });
         
-        let r = await network.makeRequest("POST", "/api/user/login", {
-            client_token: clientToken
-        });
-        r = JSON.parse(r);
-        if(r.err !== 0) {
-            throw new Error(r.msg);
-        }
-        localStorage.persistentToken = r.persistent_token;
+        try {
+            let r = await network.makeRequest("POST", "/api/user/login", {
+                client_token: clientToken
+            });
+            r = JSON.parse(r);
+            if(r.err !== 0) {
+                throw new Error(r.msg);
+            }
+            localStorage.persistentToken = r.persistent_token;
 
-        r = await network.makeRequest("POST", "/api/user/info");
-        r = JSON.parse(r);
-        if(r.err !== 0) {
-            throw new Error(r.msg);
+            r = await network.makeRequest("POST", "/api/user/info");
+            r = JSON.parse(r);
+            if(r.err !== 0) {
+                throw new Error(r.msg);
+            }
+        } catch(e) {
+            EventHub.getDefault().fireEvent("error", e);
         }
-        this.setState({ loggingIn: false });
+
+        this.setState({
+            loggingIn: false
+        });
+
         return EventHub.getDefault().fireEvent("login_complete", {});
     }
 
@@ -125,32 +130,17 @@ export default class Welcome extends React.Component {
                 boxSizing: "border-box",
                 textAlign: "center"
             }}>
-                <Button onClick={() => this.login()} disabled={this.state.requestingLogin} style={{
-                    display: this.state.loggingIn ? "none" : "block",
+                <Button raised colored onClick={() => this.login()} disabled={this.state.loggingIn} style={{
+                    display: "block",
                     margin: "auto",
                     position: "absolute",
                     top: "0px",
                     bottom: "0px",
                     left: "0px",
                     right: "0px",
-                    width: "120px",
-                    backgroundColor: "#FFFFFF",
-                    color: "#333333"
-                }}>{this.state.requestingLogin ? "正在登录" : "登录"}</Button><br />
-                <div id="login-container" style={{display: this.state.requestingLogin ? "block" : "none"}}></div><br />
-                <div style={{
-                    display: this.state.loggingIn ? "block" : "none",
-                    margin: "auto",
-                    position: "absolute",
-                    top: "0px",
-                    bottom: "0px",
-                    left: "0px",
-                    right: "0px",
-                    width: "240px",
-                    height: "10px"
-                }}>
-                    <ProgressBar indeterminate />
-                </div>
+                    width: "120px"
+                }}>{this.state.loggingIn ? "正在登录" : "登录"}</Button><br />
+                <div id="login-container" style={{display: this.state.showLoginContainer ? "block" : "none"}}></div><br />
             </div>
         )
     }

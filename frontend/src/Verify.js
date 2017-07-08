@@ -5,7 +5,6 @@ import ReactDOM from "react-dom";
 import { Card, Button, Textfield, ProgressBar } from "react-mdl";
 
 import * as view from "./view.js";
-import Me from "./Me.js";
 import EventHub from "./EventHub.js";
 const network = require("./network.js");
 const user = require("./user.js");

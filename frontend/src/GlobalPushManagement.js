@@ -66,7 +66,7 @@ export default class GlobalPushManagement extends React.Component {
     render() {
         return (
             <Card shadow={0} className="main-card">
-                <h3>全局推送管理</h3>
+                <h3>全局推送</h3>
                 <div style={{display: this.state.pushing ? "none" : "block"}}>
                     <Textfield
                         onChange={ev => this.setState({ title: ev.target.value })}
