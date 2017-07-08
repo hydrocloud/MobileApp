@@ -1,15 +1,17 @@
 import * as network from "./network.js";
+import EventHub from "./EventHub.js";
 
 export let info = {
-    load(r) {
+    load(r, verified = true) {
         this.loggedIn = true;
-        this.verified = true;
+        this.verified = verified;
         this.userId = r.user_id;
         this.username = r.username;
         this.name = r.name;
         this.isAdmin = r.is_admin;
         this.schoolName = r.school_name;
         this.className = r.class_name;
+        EventHub.getDefault().fireEvent("user_info_update");
     },
     reset() {
         this.loggedIn = false;
@@ -20,6 +22,7 @@ export let info = {
         this.isAdmin = false;
         this.schoolName = null;
         this.className = null;
+        EventHub.getDefault().fireEvent("user_info_update");
     },
     async update() {
         let r = await network.makeRequest("POST", "/api/student/info");
@@ -28,12 +31,17 @@ export let info = {
         if(r.err !== 0 && r.err !== 2) { // 2 => Not verified but logged in
             this.reset();
         } else {
-            this.load(r);
             if(r.err === 2) {
-                this.verified = false;
+                this.load(r, false);
+            } else {
+                this.load(r, true);
             }
         }
     }
 };
 
 info.loggedIn = false;
+
+EventHub.getDefault().waitForEvent("login_complete").then(() => {
+    info.update();
+});

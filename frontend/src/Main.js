@@ -4,22 +4,47 @@ import { Layout, Header, Drawer, Navigation, Content, Grid, ProgressBar, Cell, C
 
 import * as view from "./view.js";
 import * as network from "./network.js";
+import Verify from "./Verify.js";
+import Welcome from "./Welcome.js";
+import MyInfo from "./MyInfo.js";
+import MyClass from "./MyClass.js";
+import GlobalNotification from "./GlobalNotification.js";
+import ServiceAuthNotice from "./ServiceAuthNotice.js";
+import MyExams from "./MyExams.js";
+import Greetings from "./Greetings.js";
+import QQConnection from "./QQConnection.js";
+import Watched from "./Watched.js";
+import Settings from "./Settings.js";
+import Admin from "./Admin.js";
+import About from "./About.js";
+import SidebarUserInfo from "./SidebarUserInfo.js";
+import Activities from "./Activities.js";
+import WatchedQQGroupMessages from "./WatchedQQGroupMessages.js";
+import ClassNotifications from "./ClassNotifications.js";
+import AddClassNotification from "./AddClassNotification.js";
+import ManualVerificationManagement from "./ManualVerificationManagement.js";
+import GlobalPushManagement from "./GlobalPushManagement.js";
+import AddArticle from "./AddArticle.js";
+import ArticleList from "./ArticleList.js";
+import ChatList from "./ChatList.js";
+import ThirdPartyCards from "./ThirdPartyCards.js";
+import EventHub from "./EventHub.js";
 const config = require("./config.js");
+const utils = require("./utils.js");
 
 export default class Main extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            "content": ""
+            content: "",
+            loggedIn: false,
+            currentView: null,
+            hideHeader: false
         };
-        view.registerMain(this);
-    }
+        this.layoutRef = null;
+        this.mainDrawerRef = null;
 
-    onDispatch(TargetComponent) {
-        this.setState({
-            "content": ( <TargetComponent /> )
-        });
-        document.getElementById("content-container").scrollTop = 0;
+        view.registerMain(this);
     }
 
     async checkUpdate() {
@@ -30,31 +55,139 @@ export default class Main extends React.Component {
         }
     }
 
+    async waitForLogin() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("login_complete");
+                this.setState({
+                    loggedIn: true
+                });
+                view.dispatch(MyInfo);
+                await utils.sleep(100);
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    async handleViewDispatch() {
+        while(true) {
+            try {
+                let params = await EventHub.getDefault().waitForEvent("view_dispatch");
+                let TargetComponent = params.target;
+
+                this.setState({
+                    content: ( <TargetComponent /> ),
+                    currentView: TargetComponent,
+                    hideHeader: false
+                });
+
+                let mainDrawer = document.getElementById("main-drawer");
+                let layout = document.getElementById("main-layout");
+
+                if(mainDrawer.classList.contains("is-visible")) {
+                    layout.MaterialLayout.toggleDrawer();
+                }
+
+                document.getElementById("content-container").scrollTop = 0;
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    onBackButton() {
+        let layout = document.getElementById("main-layout");
+        layout.MaterialLayout.toggleDrawer();
+    }
+
+    async handleHideHeader() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("hide_header");
+                this.setState({
+                    hideHeader: true
+                });
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
     componentDidMount() {
         this.checkUpdate();
+        this.waitForLogin();
+        this.handleViewDispatch();
+        this.handleHideHeader();
+        document.addEventListener("backbutton", () => this.onBackButton(), false);
     }
 
     render() {
+        let nav;
+        if(this.state.loggedIn) {
+            nav = (
+                <Navigation>
+                    <NavigationItem target={MyClass} currentView={this.state.currentView} label="班级" />
+                    <NavigationItem target={Watched} currentView={this.state.currentView} label="关注" />
+                    <NavigationItem target={Activities} currentView={this.state.currentView} label="动态" />
+                    <NavigationItem target={ThirdPartyCards} currentView={this.state.currentView} label="小工具" />
+                    <NavigationItem target={Settings} currentView={this.state.currentView} label="设置" />
+                    <NavigationItem target={Admin} currentView={this.state.currentView} label="管理" />
+                    <NavigationItem target={About} currentView={this.state.currentView} label="关于" />
+                </Navigation>
+            );
+        } else {
+            nav = (
+                <Navigation>
+                </Navigation>
+            );
+        }
+
         return (
             <div>
-                <Layout fixedHeader>
+                <Layout fixedHeader id="main-layout">
                     <Header title={
-                        <span style={{marginLeft: "-50px"}}>通中云平台</span>
-                    } />
+                        <span style={{marginLeft: "-10px"}}>通中云平台</span>
+                    } style={{display: this.state.hideHeader ? "none" : "block"}} />
+                    <Drawer id="main-drawer" style={{overflow: "hidden"}}>
+                        <SidebarUserInfo />
+                        {nav}
+                    </Drawer>
                     <Content id="content-container">
                         <Grid>
                             <Cell col={12} align="middle" id="main-content">
                                 {this.state.content}
                             </Cell>
                         </Grid>
-                        <div id="copyright">
-                            <span>版本 {config.VERSION_STR}</span><br />
-                            <span>&copy; 2017 hydrocloud.net.</span><br />
-                            <span>Licensed under GPL v3</span>
-                        </div>
                     </Content>
                 </Layout>
             </div>
         );
+    }
+}
+
+class NavigationItem extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {};
+    }
+
+    render() {
+        if(this.props.disabled === true) {
+            return "";
+        }
+
+        let style = {};
+        if(this.props.currentView == this.props.target) {
+            style.color = "#3F51B5";
+        }
+
+        return (
+            <a
+                className="mdl-navigation__link"
+                onClick={() => view.dispatch(this.props.target)}
+                style={style}
+            >{this.props.label}</a>
+        )
     }
 }

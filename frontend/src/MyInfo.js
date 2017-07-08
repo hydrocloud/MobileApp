@@ -8,6 +8,7 @@ import * as view from "./view.js";
 import Me from "./Me.js";
 import Welcome from "./Welcome.js";
 import Verify from "./Verify.js";
+import EventHub from "./EventHub.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
@@ -43,7 +44,7 @@ export default class MyInfo extends React.Component {
         if(!confirm("你正在撤销当前账号的学生认证。请再次确认。")) {
             return;
         }
-        
+
         try {
             let r = JSON.parse(await network.makeRequest("POST", "/api/student/remove"));
             assert(r.err === 0);
@@ -56,12 +57,27 @@ export default class MyInfo extends React.Component {
 
     async getStudentInfo() {
         try {
-            await user.info.update();
             this.syncUserInfo();
         } catch(e) {
             console.log(user.info);
             console.log(this.state);
         }
+    }
+
+    async handleUserInfoUpdate() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("user_info_update");
+                this.getStudentInfo();
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
+    componentDidMount() {
+        this.getStudentInfo();
+        this.handleUserInfoUpdate();
     }
 
     async logout() {
@@ -70,10 +86,6 @@ export default class MyInfo extends React.Component {
 
         user.info.reset();
         view.dispatch(Welcome);
-    }
-
-    componentDidMount() {
-        this.getStudentInfo();
     }
     
     render() {

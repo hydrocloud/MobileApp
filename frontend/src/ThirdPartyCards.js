@@ -8,6 +8,7 @@ import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
 import ThirdPartyCard from "./ThirdPartyCard.js";
+import EmptyNotice from "./EmptyNotice.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
@@ -39,6 +40,9 @@ export default class ThirdPartyCards extends React.Component {
     }
 
     render() {
+        if(!this.state.cards.length) {
+            return <div><EmptyNotice text="你还没有添加任何小工具" /></div>;
+        }
         return <div>{this.state.cards}</div>
     }
 }

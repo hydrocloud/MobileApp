@@ -1,3 +1,5 @@
+import EventHub from "./EventHub.js";
+
 let mainComponent = null;
 
 export function registerMain(obj) {
@@ -5,5 +7,7 @@ export function registerMain(obj) {
 }
 
 export function dispatch(TargetComponent) {
-    mainComponent.onDispatch(TargetComponent);
+    EventHub.getDefault().fireEvent("view_dispatch", {
+        target: TargetComponent
+    });
 }

@@ -6,6 +6,7 @@ import * as view from "./view.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const config = require("./config.js");
+import EventHub from "./EventHub.js";
 
 import Me from "./Me.js";
 
@@ -26,7 +27,7 @@ export default class Welcome extends React.Component {
                 return;
             }
             console.log(r);
-            return view.dispatch(Me);
+            return EventHub.getDefault().fireEvent("login_complete", {});
         } catch(e) {
             return;
         }
@@ -50,7 +51,7 @@ export default class Welcome extends React.Component {
         r = JSON.parse(r);
 
         if(r.err === 0) {
-            return view.dispatch(Me);
+            return EventHub.getDefault().fireEvent("login_complete", {});
         }
     }
 
@@ -99,20 +100,55 @@ export default class Welcome extends React.Component {
             throw new Error(r.msg);
         }
         this.setState({ loggingIn: false });
-        return view.dispatch(Me);
+        return EventHub.getDefault().fireEvent("login_complete", {});
     }
 
     async componentDidMount() {
+        EventHub.getDefault().fireEvent("hide_header");
         await this.tryLoadSession();
         await this.tryAutoLogin();
     }
 
     render() {
         return (
-            <div>
-                <Button raised colored onClick={() => this.login()} style={{display: (this.state.loggingIn || this.state.requestingLogin) ? "none" : "block"}}>登录</Button><br />
+            <div style={{
+                position: "fixed",
+                top: "0px",
+                left: "0px",
+                width: "100%",
+                height: "100%",
+                zIndex: "10",
+                backgroundImage: "url(images/login-bg.jpg)",
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+                padding: "30px 30px",
+                boxSizing: "border-box",
+                textAlign: "center"
+            }}>
+                <Button onClick={() => this.login()} disabled={this.state.requestingLogin} style={{
+                    display: this.state.loggingIn ? "none" : "block",
+                    margin: "auto",
+                    position: "absolute",
+                    top: "0px",
+                    bottom: "0px",
+                    left: "0px",
+                    right: "0px",
+                    width: "120px",
+                    backgroundColor: "#FFFFFF",
+                    color: "#333333"
+                }}>{this.state.requestingLogin ? "正在登录" : "登录"}</Button><br />
                 <div id="login-container" style={{display: this.state.requestingLogin ? "block" : "none"}}></div><br />
-                <div style={{display: this.state.loggingIn ? "block" : "none"}}>
+                <div style={{
+                    display: this.state.loggingIn ? "block" : "none",
+                    margin: "auto",
+                    position: "absolute",
+                    top: "0px",
+                    bottom: "0px",
+                    left: "0px",
+                    right: "0px",
+                    width: "240px",
+                    height: "10px"
+                }}>
                     <ProgressBar indeterminate />
                 </div>
             </div>

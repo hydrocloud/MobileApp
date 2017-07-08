@@ -6,6 +6,7 @@ import { Card, Button, Textfield, ProgressBar } from "react-mdl";
 
 import * as view from "./view.js";
 import Me from "./Me.js";
+import EventHub from "./EventHub.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
@@ -41,7 +42,7 @@ export default class Verify extends React.Component {
                 password: pw
             }));
             assert(r.err === 0);
-            view.dispatch(Me);
+            EventHub.getDefault().fireEvent("login_complete", {});
         } catch(e) {
             console.log(e);
             alert("验证失败。请检查你的智学网账号和密码是否正确。");

@@ -59,8 +59,6 @@ export default class QQConnection extends React.Component {
         });
     }
 
-    draw
-
     async requestConnect() {
         this.setState({
             info: ( <ProgressBar indeterminate /> )

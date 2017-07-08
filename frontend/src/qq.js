@@ -1,5 +1,6 @@
 import * as network from "./network.js";
 const assert = require("assert");
+import EventHub from "./EventHub.js";
 
 export let status = null;
 let initWaitingCallbacks = [];
@@ -33,3 +34,7 @@ export function waitForInit() {
         else initWaitingCallbacks.push(cb);
     });
 }
+
+EventHub.getDefault().waitForEvent("login_complete").then(() => {
+    init();
+})
