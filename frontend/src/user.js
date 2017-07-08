@@ -42,6 +42,18 @@ export let info = {
 
 info.loggedIn = false;
 
-EventHub.getDefault().waitForEvent("login_complete").then(() => {
-    info.update();
-});
+export async function checkServiceAuth() {
+    let r = await network.makeRequest("POST", "/api/user/service_auth_status");
+    r = JSON.parse(r);
+
+    if(r.err !== 0) {
+        EventHub.getDefault().fireEvent("error", r);
+        return;
+    }
+
+    if(!r.authorized) {
+        EventHub.getDefault().fireEvent("notification", {
+            content: "请在 OneIdentity 个人中心授权服务 通中云平台"
+        })
+    }
+}

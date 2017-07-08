@@ -10,7 +10,6 @@ import Verify from "./Verify.js";
 import Welcome from "./Welcome.js";
 import MyInfo from "./MyInfo.js";
 import GlobalNotification from "./GlobalNotification.js";
-import ServiceAuthNotice from "./ServiceAuthNotice.js";
 import MyExams from "./MyExams.js";
 import Greetings from "./Greetings.js";
 import QQConnection from "./QQConnection.js";
@@ -100,7 +99,6 @@ export default class Me extends React.Component {
         return (
             <div>
                 <Greetings />
-                <ServiceAuthNotice />
                 <MyInfo />
                 <GlobalNotification />
                 <QQConnection />

@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { Layout, Header, Drawer, Navigation, Content, Grid, ProgressBar, Cell, Card, Button } from "react-mdl";
+import { Layout, Header, Drawer, Navigation, Content, Grid, ProgressBar, Cell, Card, Button, Snackbar } from "react-mdl";
 
 import * as view from "./view.js";
 import * as network from "./network.js";
@@ -9,7 +9,6 @@ import Welcome from "./Welcome.js";
 import MyInfo from "./MyInfo.js";
 import MyClass from "./MyClass.js";
 import GlobalNotification from "./GlobalNotification.js";
-import ServiceAuthNotice from "./ServiceAuthNotice.js";
 import MyExams from "./MyExams.js";
 import Greetings from "./Greetings.js";
 import QQConnection from "./QQConnection.js";
@@ -45,7 +44,9 @@ export default class Main extends React.Component {
             currentView: null,
             hideHeader: false,
             fullScreenNotifcation: "",
-            isAdmin: user.info.isAdmin || false
+            isAdmin: user.info.isAdmin || false,
+            snackbarActive: false,
+            snackbarContent: ""
         };
         this.layoutRef = null;
         this.mainDrawerRef = null;
@@ -70,6 +71,7 @@ export default class Main extends React.Component {
                     loggedIn: true
                 });
                 push.init();
+                user.checkServiceAuth();
                 view.dispatch(Watched);
                 await utils.sleep(100);
             } catch(e) {
@@ -157,18 +159,7 @@ export default class Main extends React.Component {
                 let details = await EventHub.getDefault().waitForEvent("error");
                 console.log(details);
 
-                let onClose;
-                let closePromise = new Promise(cb => onClose = cb);
-
-                this.setState({
-                    fullScreenNotifcation: (
-                        <FullScreenNotifcation text="内部错误" onClose={() => onClose()} />
-                    )
-                });
-                await closePromise;
-                this.setState({
-                    fullScreenNotifcation: ""
-                });
+                this.showSnackbar("内部错误");
             } catch(e) {
                 console.log(e);
             }
@@ -203,6 +194,39 @@ export default class Main extends React.Component {
         }
     }
 
+    async handleNotification() {
+        while(true) {
+            try {
+                let details = await EventHub.getDefault().waitForEvent("notification");
+                this.showSnackbar(details.content);
+            } catch(e) {
+                EventHub.getDefault().fireEvent("error", e);
+            }
+        }
+    }
+
+    showSnackbar(content) {
+        this.setState({
+            snackbarActive: true,
+            snackbarContent: content
+        });
+    }
+
+    hideSnackbar() {
+        this.setState({
+            snackbarActive: false,
+            snackbarContent: ""
+        });
+    }
+
+    onSnackbarClick() {
+        this.hideSnackbar();
+    }
+
+    onSnackbarTimeout() {
+        this.hideSnackbar();
+    }
+
     componentDidMount() {
         this.checkUpdate();
         this.waitForLogin();
@@ -212,6 +236,7 @@ export default class Main extends React.Component {
         this.handleGeneralError();
         this.handleUserInfoUpdate();
         this.handleUserLogout();
+        this.handleNotification();
         document.addEventListener("backbutton", () => this.onBackButton(), false);
     }
 
@@ -253,6 +278,7 @@ export default class Main extends React.Component {
                         </Grid>
                     </Content>
                 </Layout>
+                <div><Snackbar active={this.state.snackbarActive} onClick={() => this.onSnackbarClick()} onTimeout={() => this.onSnackbarTimeout()} action="OK">{this.state.snackbarContent}</Snackbar></div>
                 <div>{this.state.fullScreenNotifcation}</div>
             </div>
         );
