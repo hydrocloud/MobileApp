@@ -6,6 +6,7 @@ import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "re
 
 import * as view from "./view.js";
 import Verify from "./Verify.js";
+import EventHub from "./EventHub.js";
 import * as utils from "./utils.js";
 const network = require("./network.js");
 const user = require("./user.js");
@@ -169,7 +170,9 @@ export default class ThirdPartyCard extends React.Component {
                             });
                             console.log(r);
                         } catch(e) {
-                            alert("执行失败: " + e);
+                            EventHub.getDefault().fireEvent("notification", {
+                                content: "执行失败: " + e
+                            });
                             console.log(e);
                             return;
                         }

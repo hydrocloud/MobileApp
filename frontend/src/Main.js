@@ -74,6 +74,7 @@ export default class Main extends React.Component {
                 user.checkServiceAuth();
                 view.dispatch(Watched);
                 await utils.sleep(100);
+                this.toggleDrawer();
             } catch(e) {
                 console.log(e);
             }
@@ -93,10 +94,8 @@ export default class Main extends React.Component {
                 });
 
                 let mainDrawer = document.getElementById("main-drawer");
-                let layout = document.getElementById("main-layout");
-
                 if(mainDrawer.classList.contains("is-visible")) {
-                    layout.MaterialLayout.toggleDrawer();
+                    this.toggleDrawer();
                 }
 
                 document.getElementById("content-container").scrollTop = 0;
@@ -106,9 +105,13 @@ export default class Main extends React.Component {
         }
     }
 
-    onBackButton() {
+    toggleDrawer() {
         let layout = document.getElementById("main-layout");
         layout.MaterialLayout.toggleDrawer();
+    }
+
+    onBackButton() {
+        this.toggleDrawer();
     }
 
     async handleHideHeader() {
