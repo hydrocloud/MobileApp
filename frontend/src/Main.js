@@ -29,6 +29,7 @@ import ChatList from "./ChatList.js";
 import ThirdPartyCards from "./ThirdPartyCards.js";
 import EventHub from "./EventHub.js";
 import FullScreenNotifcation from "./FullScreenNotification.js";
+import Hammer from "hammerjs";
 import * as user from "./user.js";
 const config = require("./config.js");
 const utils = require("./utils.js");
@@ -50,6 +51,8 @@ export default class Main extends React.Component {
         };
         this.layoutRef = null;
         this.mainDrawerRef = null;
+        this.hammer = null;
+        this.lastBackButtonTime = 0;
 
         view.registerMain(this);
     }
@@ -93,10 +96,7 @@ export default class Main extends React.Component {
                     hideHeader: false
                 });
 
-                let mainDrawer = document.getElementById("main-drawer");
-                if(mainDrawer.classList.contains("is-visible")) {
-                    this.toggleDrawer();
-                }
+                this.closeDrawer();
 
                 document.getElementById("content-container").scrollTop = 0;
             } catch(e) {
@@ -110,8 +110,31 @@ export default class Main extends React.Component {
         layout.MaterialLayout.toggleDrawer();
     }
 
+    openDrawer() {
+        let mainDrawer = document.getElementById("main-drawer");
+        if(!mainDrawer.classList.contains("is-visible")) {
+            this.toggleDrawer();
+        }
+    }
+
+    closeDrawer() {
+        let mainDrawer = document.getElementById("main-drawer");
+        if(mainDrawer.classList.contains("is-visible")) {
+            this.toggleDrawer();
+        }
+    }
+
     onBackButton() {
-        this.toggleDrawer();
+        let currentTime = Date.now();
+
+        if(currentTime - this.lastBackButtonTime < 3000) {
+            window.close();
+        } else {
+            this.lastBackButtonTime = currentTime;
+            EventHub.getDefault().fireEvent("notification", {
+                content: "再按一次返回键退出应用"
+            });
+        }
     }
 
     async handleHideHeader() {
@@ -230,6 +253,23 @@ export default class Main extends React.Component {
         this.hideSnackbar();
     }
 
+    initGestures() {
+        this.hammer = new Hammer.Manager(document.body);
+        this.hammer.add(new Hammer.Swipe({direction: Hammer.DIRECTION_HORIZONTAL}));
+
+        this.hammer.on("swiperight", ev => {
+            if(Math.abs(ev.velocity) > 1) {
+                this.openDrawer();
+            }
+        });
+
+        this.hammer.on("swipeleft", ev => {
+            if(Math.abs(ev.velocity) > 1) {
+                this.closeDrawer();
+            }
+        });
+    }
+
     componentDidMount() {
         this.checkUpdate();
         this.waitForLogin();
@@ -240,6 +280,7 @@ export default class Main extends React.Component {
         this.handleUserInfoUpdate();
         this.handleUserLogout();
         this.handleNotification();
+        this.initGestures();
         document.addEventListener("backbutton", () => this.onBackButton(), false);
     }
 
@@ -281,7 +322,7 @@ export default class Main extends React.Component {
                         </Grid>
                     </Content>
                 </Layout>
-                <div><Snackbar active={this.state.snackbarActive} onClick={() => this.onSnackbarClick()} onTimeout={() => this.onSnackbarTimeout()} action="OK">{this.state.snackbarContent}</Snackbar></div>
+                <div><Snackbar style={{zIndex: "100"}} active={this.state.snackbarActive} onClick={() => this.onSnackbarClick()} onTimeout={() => this.onSnackbarTimeout()} action="OK">{this.state.snackbarContent}</Snackbar></div>
                 <div>{this.state.fullScreenNotifcation}</div>
             </div>
         );
