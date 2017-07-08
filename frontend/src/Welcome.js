@@ -130,7 +130,7 @@ export default class Welcome extends React.Component {
                 boxSizing: "border-box",
                 textAlign: "center"
             }}>
-                <Button raised colored onClick={() => this.login()} disabled={this.state.loggingIn} style={{
+                <div style={{
                     display: "block",
                     margin: "auto",
                     position: "absolute",
@@ -138,8 +138,22 @@ export default class Welcome extends React.Component {
                     bottom: "0px",
                     left: "0px",
                     right: "0px",
-                    width: "120px"
-                }}>{this.state.loggingIn ? "正在登录" : "登录"}</Button><br />
+                    width: "256px",
+                    height: "200px"
+                }}>
+                    <div style={{
+                        color: "#FFFFFF",
+                        fontSize: "36px",
+                        marginBottom: "50px",
+                        fontFamily: "Lato-Light"
+                    }}>HydroCloud</div>
+                    <Button raised colored onClick={() => this.login()} disabled={this.state.loggingIn} style={{
+                        display: "block",
+                        width: "120px",
+                        margin: "auto"
+                    }}>{this.state.loggingIn ? "正在登录" : "登录"}</Button>
+                </div>
+                <br />
                 <div id="login-container" style={{display: this.state.showLoginContainer ? "block" : "none"}}></div><br />
             </div>
         )

@@ -292,6 +292,7 @@ export default class Main extends React.Component {
                     <NavigationItem target={MyClass} currentView={this.state.currentView} label="班级" />
                     <NavigationItem target={Watched} currentView={this.state.currentView} label="关注" />
                     <NavigationItem target={Activities} currentView={this.state.currentView} label="动态" />
+                    <NavigationItem target={ChatList} currentView={this.state.currentView} label="私信" />
                     <NavigationItem target={ThirdPartyCards} currentView={this.state.currentView} label="小工具" />
                     <NavigationItem disabled={!this.state.isAdmin} target={Admin} currentView={this.state.currentView} label="管理" />
                     <NavigationItem target={About} currentView={this.state.currentView} label="关于" />

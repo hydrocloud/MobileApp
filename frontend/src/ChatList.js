@@ -112,7 +112,7 @@ export default class ChatList extends React.Component {
         }
         return (
             <Card shadow={0} className="main-card">
-                <h3>我的私信</h3>
+                <h3>私信</h3>
                 {body}
             </Card>
         )

@@ -1,3 +1,8 @@
+@font-face {
+    font-family: Lato-Light;
+    src: url(../fonts/Lato-Light.ttf)
+}
+
 body {
     background-color: #F7F7F7;
     user-select: none;

@@ -21,7 +21,7 @@ export default class About extends React.Component {
             <Card shadow={0} className="main-card">
                 <h3>关于</h3>
                 <div style={{textAlign: "left"}}>
-                    <p>通中云平台移动端</p>
+                    <p>通中云平台移动端应用</p>
                     <p>版本 {config.VERSION_STR}</p>
                     <p>&copy; 2017 hydrocloud.net.</p>
                     <p>Licensed under GPL v3</p>
