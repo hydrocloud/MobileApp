@@ -3,12 +3,14 @@ const assert = require("assert");
 import React from "react";
 import ReactDOM from "react-dom";
 import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "react-mdl";
+import { ChatFeed, Message } from "react-chat-ui";
 
 import * as view from "./view.js";
 import Verify from "./Verify.js";
 import * as utils from "./utils.js";
 import ClassNotificationView from "./ClassNotificationView.js";
 import ReactMarkdown from "react-markdown";
+
 const toMarkdown = require("to-markdown");
 const network = require("./network.js");
 const user = require("./user.js");
@@ -26,6 +28,8 @@ export default class Chat extends React.Component {
             messages: [],
             msgToSend: ""
         };
+        this.inputHeight = 67;
+        this.sendButtonWidth = 80;
     }
 
     async updateConversation() {
@@ -125,25 +129,74 @@ export default class Chat extends React.Component {
     }
     
     render() {
-        let msgView = this.state.messages.sort((a, b) => a.time - b.time).map(v => (
-            <div key={v.id} style={{marginBottom: "26px"}}>
-                <pre>{v.content}</pre>
-                <span style={{color: "#7F7F7F"}}>{v.from} {new Date(v.time).toLocaleString()}</span>
-            </div>
-        ));
+        let viewMessages = this.state.messages.sort((a, b) => a.time - b.time).map(v => new Message({
+            id: v.from == user.info.username ? 0 : 1,
+            message: v.content
+        }));
+
         return (
-            <div>
+            <div style={{
+                position: "fixed",
+                zIndex: 6,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                backgroundColor: "#FFFFFF"
+            }}>
                 <h3>与{this.state.toRealName} ({this.state.to}) 的私信</h3>
-                <div>
-                {msgView}
+                <div style={{
+                    position: "absolute",
+                    bottom: this.inputHeight + 5,
+                    left: "0px",
+                    right: "0px",
+                    width: "100%",
+                    height: window.innerHeight - this.inputHeight - 20
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        bottom: 0,
+                        width: "100%",
+                        height: "100%"
+                    }}>
+                        <ChatFeed
+                            messages={viewMessages}
+                            isTyping={false}
+                            hasInputField={false}
+                            bubblesCentered={false}
+                        />
+                    </div>
                 </div>
-                <Textfield
-                    onChange={ev => this.setState({ msgToSend: ev.target.value })}
-                    label=""
-                    style={{width: "100%", marginTop: 0}}
-                    value={this.state.msgToSend}
-                /><br />
-                <Button raised colored onClick={() => this.sendMessage()}>发送</Button><br />
+                <div style={{
+                    position: "absolute",
+                    bottom: "0px",
+                    left: "0px",
+                    right: "0px",
+                    width: "100%",
+                    height: this.inputHeight
+                }}>
+                    <Textfield
+                        style={{
+                            display: "block",
+                            width: window.innerWidth - this.sendButtonWidth - 20,
+                            position: "absolute",
+                            bottom: 0,
+                            left: 5
+                        }}
+                        onChange={ev => this.setState({ msgToSend: ev.target.value })}
+                        label=""
+                        value={this.state.msgToSend}
+                    />
+                    <Button raised colored onClick={() => this.sendMessage()} style={{
+                        width: this.sendButtonWidth,
+                        position: "absolute",
+                        display: "block",
+                        right: 5,
+                        bottom: 20
+                    }}>发送</Button>
+                </div>
             </div>
         )
     }

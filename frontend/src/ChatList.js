@@ -69,10 +69,10 @@ export default class ChatList extends React.Component {
     }
 
     into(u) {
-        this.setState({
-            inChat: true,
-            targetUser: u
+        Chat.preload({
+            to: u
         });
+        view.dispatch(Chat);
     }
 
     componentDidMount() {

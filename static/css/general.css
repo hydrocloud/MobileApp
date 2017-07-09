@@ -71,3 +71,7 @@ h3 {
 img {
     width: 100%;
 }
+
+#chat-panel {
+    height: 100%;
+}
