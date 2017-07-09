@@ -4,6 +4,9 @@ import * as view from "./view.js";
 import Article from "./Article.js";
 import Chat from "./Chat.js";
 import ChatView from "./ChatView.js";
+import EventHub from "./EventHub.js";
+
+export let ready = false;
 
 function getRegistrationId() {
     return new Promise(cb => {
@@ -23,18 +26,28 @@ async function registerDevice(jpushId) {
 
 export async function init() {
     if(!window.cordova) {
+        console.log("window.cordova not found. Not initializing push.");
         return;
     }
 
     let jpushId = "";
+    let startTime = Date.now();
+    console.log("Initializing push");
     while(!jpushId) {
         jpushId = await getRegistrationId();
         await utils.sleep(100);
+        if(Date.now() - startTime > 5000) {
+            //console.log("Warning: Push still not ready after 5 seconds.");
+            startTime = Date.now();
+        }
     }
 
     console.log("Push initialized. jPush id: " + jpushId);
     let deviceId = await registerDevice(jpushId);
     console.log("Device registered. Device id: " + deviceId);
+
+    ready = true;
+    EventHub.getDefault().fireEvent("push_ready");
 
     while(!window.document) {
         await utils.sleep(10);

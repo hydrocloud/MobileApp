@@ -982,6 +982,33 @@ def on_api_admin_article_add():
         "article_id": article_id
     })
 
+@app.route("/api/logging/add", methods = ["POST"])
+def on_api_logging_add():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    log_type = flask.request.form["type"]
+    details = json.loads(flask.request.form["details"])
+    log_id = str(uuid.uuid4())
+    current_time = int(time.time() * 1000)
+
+    db.user_logs.insert_one({
+        "id": log_id,
+        "user_id": sess.user_id,
+        "type": log_type,
+        "details": details,
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/device/register", methods = ["POST"])
 def on_api_device_register():
     sess = sessions.get(flask.request.cookies["token"], None)

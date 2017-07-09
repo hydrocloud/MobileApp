@@ -30,6 +30,7 @@ import ThirdPartyCards from "./ThirdPartyCards.js";
 import EventHub from "./EventHub.js";
 import FullScreenNotifcation from "./FullScreenNotification.js";
 import Hammer from "hammerjs";
+import * as logging from "./logging.js";
 import * as user from "./user.js";
 const config = require("./config.js");
 const utils = require("./utils.js");
@@ -69,6 +70,8 @@ export default class Main extends React.Component {
         while(true) {
             try {
                 await EventHub.getDefault().waitForEvent("login_complete");
+                logging.logUncaughtExceptions();
+                logging.logConsoleOutputs();
                 user.info.update();
                 this.setState({
                     loggedIn: true
