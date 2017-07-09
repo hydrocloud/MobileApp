@@ -321,6 +321,24 @@ def on_api_user_login():
     }))
     return resp
 
+@app.route("/api/user/logout", methods = ["POST"])
+def on_api_user_logout():
+    global sessions
+    
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+
+    del sessions[sess.token]
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/ping", methods = ["POST"])
 def on_api_ping():
     return flask.jsonify({

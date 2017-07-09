@@ -11,11 +11,6 @@ import EventHub from "./EventHub.js";
 const network = require("./network.js");
 const user = require("./user.js");
 
-function clearCookies() {
-    document.cookie.split(";").forEach(c => {
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-}
 
 export default class MyInfo extends React.Component {
     constructor(props) {
@@ -80,8 +75,8 @@ export default class MyInfo extends React.Component {
     }
 
     async logout() {
-        clearCookies();
         delete localStorage.persistentToken;
+        await network.makeRequest("POST", "/api/user/logout");
 
         EventHub.getDefault().fireEvent("logout");
     }
