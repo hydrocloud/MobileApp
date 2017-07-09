@@ -2,7 +2,7 @@ const assert = require("assert");
 
 import React from "react";
 import ReactDOM from "react-dom";
-import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader } from "react-mdl";
+import { Card, Button, Textfield, ProgressBar, DataTable, TableHeader, Icon } from "react-mdl";
 import { ChatFeed, Message } from "react-chat-ui";
 
 import * as view from "./view.js";
@@ -10,6 +10,8 @@ import Verify from "./Verify.js";
 import * as utils from "./utils.js";
 import ClassNotificationView from "./ClassNotificationView.js";
 import ReactMarkdown from "react-markdown";
+import ChatList from "./ChatList.js";
+import EventHub from "./EventHub.js";
 
 const toMarkdown = require("to-markdown");
 const network = require("./network.js");
@@ -28,6 +30,7 @@ export default class Chat extends React.Component {
             messages: [],
             msgToSend: ""
         };
+        this.headerHeight = 50;
         this.inputHeight = 67;
         this.sendButtonWidth = 80;
     }
@@ -120,6 +123,7 @@ export default class Chat extends React.Component {
             if(this.state.to) updateListeners[this.state.to] = msg => this.addMessage(msg);
             this.updateConversation();
         });
+        EventHub.getDefault().fireEvent("hide_header");
 
         preloaded = null;
     }
@@ -129,7 +133,14 @@ export default class Chat extends React.Component {
     }
     
     render() {
-        let viewMessages = this.state.messages.sort((a, b) => a.time - b.time).map(v => new Message({
+        let m = {};
+        let viewMessages = this.state.messages.sort((a, b) => a.time - b.time).filter(v => {
+            if(m[v.id]) return false;
+            else {
+                m[v.id] = true;
+                return true;
+            }
+        }).map(v => new Message({
             id: v.from == user.info.username ? 0 : 1,
             message: v.content
         }));
@@ -146,20 +157,51 @@ export default class Chat extends React.Component {
                 height: window.innerHeight,
                 backgroundColor: "#FFFFFF"
             }}>
-                <h3>与{this.state.toRealName} ({this.state.to}) 的私信</h3>
+                <div style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    width: "100%",
+                    height: this.headerHeight,
+                    backgroundColor: "#FFFFFF",
+                    color: "#333333",
+                    boxShadow: "0 0 10px rgba(127, 127, 127, 0.3)"
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 10,
+                        bottom: 0,
+                        lineHeight: "" + this.headerHeight + "px",
+                        height: this.headerHeight,
+                        paddingTop: 6
+                    }} onClick={() => view.dispatch(ChatList)}><Icon name="arrow_back" /></div>
+                    <div style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 50,
+                        bottom: 0,
+                        lineHeight: "" + this.headerHeight + "px",
+                        height: this.headerHeight,
+                        fontSize: 18
+                    }}>{this.state.toRealName}</div>
+                </div>
                 <div style={{
                     position: "absolute",
                     bottom: this.inputHeight + 5,
                     left: "0px",
                     right: "0px",
                     width: "100%",
-                    height: window.innerHeight - this.inputHeight - 20
+                    height: window.innerHeight - this.inputHeight - this.headerHeight - 5
                 }}>
                     <div style={{
                         position: "absolute",
                         bottom: 0,
-                        width: "100%",
-                        height: "100%"
+                        width: window.innerWidth - 10,
+                        height: "100%",
+                        paddingLeft: 5,
+                        paddingRight: 5
                     }}>
                         <ChatFeed
                             messages={viewMessages}
