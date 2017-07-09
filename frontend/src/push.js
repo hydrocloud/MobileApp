@@ -145,6 +145,6 @@ async function handlePMRecv(id, isRecv) {
         Chat.preload({
             to: pm.from
         });
-        view.dispatch(ChatView);
+        view.dispatch(Chat);
     }
 }

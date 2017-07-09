@@ -3,9 +3,14 @@
     src: url(../fonts/Lato-Light.ttf)
 }
 
+::-webkit-scrollbar { 
+    display: none; 
+}
+
 body {
     background-color: #F7F7F7;
     user-select: none;
+    -webkit-user-select: none;
 }
 
 h3 {

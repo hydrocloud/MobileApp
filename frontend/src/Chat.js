@@ -28,7 +28,8 @@ export default class Chat extends React.Component {
             to: "",
             toRealName: "",
             messages: [],
-            msgToSend: ""
+            msgToSend: "",
+            viewResizeTime: 0
         };
         this.headerHeight = 50;
         this.inputHeight = 67;
@@ -88,7 +89,9 @@ export default class Chat extends React.Component {
 
     async sendMessage() {
         if(!this.state.msgToSend) {
-            alert("请输入私信内容");
+            EventHub.getDefault().fireEvent("notification", {
+                content: "请输入消息内容"
+            });
             return;
         }
 
@@ -116,6 +119,19 @@ export default class Chat extends React.Component {
         });
     }
 
+    async handleViewResize() {
+        while(true) {
+            try {
+                await EventHub.getDefault().waitForEvent("view_resize");
+                this.setState({
+                    viewResizeTime: Date.now()
+                });
+            } catch(e) {
+                console.log(e);
+            }
+        }
+    }
+
     componentDidMount() {
         this.setState({
             to: this.props.to || preloaded.to
@@ -124,6 +140,7 @@ export default class Chat extends React.Component {
             this.updateConversation();
         });
         EventHub.getDefault().fireEvent("hide_header");
+        this.handleViewResize();
 
         preloaded = null;
     }
@@ -231,7 +248,7 @@ export default class Chat extends React.Component {
                         label=""
                         value={this.state.msgToSend}
                     />
-                    <Button raised colored onClick={() => this.sendMessage()} style={{
+                    <Button colored onClick={() => this.sendMessage()} style={{
                         width: this.sendButtonWidth,
                         position: "absolute",
                         display: "block",

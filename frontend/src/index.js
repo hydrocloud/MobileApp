@@ -30,4 +30,8 @@ function override_link_open() {
     };
 }
 
-init();
+if(window.cordova) {
+    document.addEventListener("deviceready", init);
+} else {
+    init();
+}

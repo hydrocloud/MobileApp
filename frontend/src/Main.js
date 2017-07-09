@@ -37,6 +37,8 @@ const utils = require("./utils.js");
 const qq = require("./qq.js");
 const push = require("./push.js");
 
+const DefaultComponent = Watched;
+
 export default class Main extends React.Component {
     constructor(props) {
         super(props);
@@ -78,7 +80,7 @@ export default class Main extends React.Component {
                 });
                 push.init();
                 user.checkServiceAuth();
-                view.dispatch(Watched);
+                view.dispatch(DefaultComponent);
                 await utils.sleep(100);
                 this.toggleDrawer();
             } catch(e) {
@@ -137,6 +139,7 @@ export default class Main extends React.Component {
             EventHub.getDefault().fireEvent("notification", {
                 content: "再按一次返回键退出应用"
             });
+            if(this.state.currentView != Welcome) view.dispatch(DefaultComponent);
         }
     }
 
@@ -284,6 +287,7 @@ export default class Main extends React.Component {
         this.handleUserLogout();
         this.handleNotification();
         this.initGestures();
+        window.addEventListener("resize", () => EventHub.getDefault().fireEvent("view_resize"));
         document.addEventListener("backbutton", () => this.onBackButton(), false);
     }
 
