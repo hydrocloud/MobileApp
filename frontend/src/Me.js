@@ -22,6 +22,7 @@ import AddArticle from "./AddArticle.js";
 import ArticleList from "./ArticleList.js";
 import ChatList from "./ChatList.js";
 import ThirdPartyCards from "./ThirdPartyCards.js";
+import EventHub from "./EventHub.js";
 const network = require("./network.js");
 const user = require("./user.js");
 const qq = require("./qq.js");
@@ -52,6 +53,7 @@ export default class Me extends React.Component {
         this.loadQQWidgets();
         this.loadAdminWidgets();
         prepared = true;
+        EventHub.getDefault().fireEvent("set_title", "个人中心");
     }
 
     static isPrepared() {

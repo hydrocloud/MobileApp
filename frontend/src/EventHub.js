@@ -15,7 +15,11 @@ export default class EventHub {
 
         for(let k in this.listeners[ev]) {
             let t = this.listeners[ev][k];
-            t(ev, params);
+            try {
+                t(ev, params);
+            } catch(e) {
+                console.log(e);
+            }
             dispatchCount++;
         }
 
@@ -34,8 +38,29 @@ export default class EventHub {
         });
     }
 
+    listen(name, cb) {
+        if(!this.listeners[name]) this.listeners[name] = {};
+        let id = uuid.v4();
+
+        this.listeners[name][id] = (ev, params) => cb(params);
+        return new ListenHandle(this.listeners[name], id);
+    }
+
     static getDefault() {
         return defaultEventHub;
+    }
+}
+
+class ListenHandle {
+    constructor(ev, id) {
+        this.ev = ev;
+        this.id = id;
+    }
+
+    reset() {
+        delete this.ev[this.id];
+        this.ev = null;
+        this.id = null;
     }
 }
 

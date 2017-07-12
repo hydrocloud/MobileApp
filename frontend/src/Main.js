@@ -43,6 +43,7 @@ export default class Main extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            title: "",
             content: "",
             loggedIn: false,
             currentView: null,
@@ -96,6 +97,7 @@ export default class Main extends React.Component {
                 let TargetComponent = params.target;
 
                 this.setState({
+                    title: "",
                     content: ( <TargetComponent /> ),
                     currentView: TargetComponent,
                     hideHeader: false
@@ -237,6 +239,12 @@ export default class Main extends React.Component {
         }
     }
 
+    handleSetTitle() {
+        EventHub.getDefault().listen("set_title", title => this.setState({
+            title: title
+        }));
+    }
+
     showSnackbar(content) {
         this.setState({
             snackbarActive: true,
@@ -286,6 +294,7 @@ export default class Main extends React.Component {
         this.handleUserInfoUpdate();
         this.handleUserLogout();
         this.handleNotification();
+        this.handleSetTitle();
         this.initGestures();
         window.addEventListener("resize", () => EventHub.getDefault().fireEvent("view_resize"));
         document.addEventListener("backbutton", () => this.onBackButton(), false);
@@ -316,7 +325,7 @@ export default class Main extends React.Component {
             <div>
                 <Layout fixedHeader id="main-layout">
                     <Header title={
-                        <span style={{marginLeft: "-10px"}}>通中云平台</span>
+                        <span style={{marginLeft: "-10px"}}>{this.state.title || "通中云平台"}</span>
                     } style={{display: this.state.hideHeader ? "none" : "block"}} />
                     <Drawer id="main-drawer" style={{overflow: "hidden"}}>
                         <SidebarUserInfo />

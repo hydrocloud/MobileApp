@@ -1155,6 +1155,73 @@ def on_api_article_list():
         "articles": articles
     })
 
+@app.route("/api/join/request", methods = ["POST"])
+def on_api_join_request():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    u = User.get_by_id(sess.user_id)
+    if u.is_verified() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "You need to be verified"
+        })
+    
+    intro = flask.request.form["intro"]
+    alt_contact = flask.request.form["alt_contact"]
+    current_time = int(time.time() * 1000)
+    req_id = str(uuid.uuid4())
+
+    db.join_requests.delete_many({
+        "user_id": u.id
+    })
+
+    db.join_requests.insert_one({
+        "id": req_id,
+        "user_id": u.id,
+        "intro": intro,
+        "alt_contact": alt_contact,
+        "response": "",
+        "create_time": current_time
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
+@app.route("/api/join/my_request", methods = ["POST"])
+def on_api_join_my_request():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    req = db.join_requests.find_one({
+        "user_id": sess.user_id
+    })
+    if req == None:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "No join requests"
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "id": req["id"],
+        "intro": req["intro"],
+        "alt_contact": req["alt_contact"],
+        "response": req["response"],
+        "create_time": req["create_time"]
+    })
+
 @app.route("/api/pm/send", methods = ["POST"])
 def on_api_pm_send():
     sess = sessions.get(flask.request.cookies["token"], None)
