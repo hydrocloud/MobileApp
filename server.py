@@ -466,6 +466,118 @@ def on_api_admin_user_verify():
         "msg": "OK"
     })
 
+@app.route("/api/admin/join_review/list", methods = ["POST"])
+def on_api_admin_join_review_list():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    limit = int(flask.request.form.get("limit", "1000"))
+    
+    reqs = []
+    for req in db.join_requests.find({}).sort("create_time", -1).limit(limit):
+        u = User.get_by_id(req["user_id"])
+
+        has_response = True
+
+        if req["response"] == None or req["response"] == "":
+            has_response = False
+
+        reqs.append({
+            "id": req["id"],
+            "user_id": u.id,
+            "username": u.name,
+            "name": u.real_name,
+            "has_response": has_response,
+            "create_time": req["create_time"]
+        })
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "requests": reqs
+    })
+
+@app.route("/api/admin/join_review/details", methods = ["POST"])
+def on_api_admin_join_review_details():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    req_id = flask.request.form["req_id"]
+    
+    req = db.join_requests.find_one({
+        "id": req_id
+    })
+    if req == None:
+        return flask.jsonify({
+            "err": 3,
+            "msg": "Request not found"
+        })
+    
+    u = User.get_by_id(req["user_id"])
+    
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK",
+        "user_id": u.id,
+        "username": u.name,
+        "name": u.real_name,
+        "intro": req["intro"],
+        "alt_contact": req["alt_contact"],
+        "response": req["response"],
+        "create_time": req["create_time"]
+    })
+
+@app.route("/api/admin/join_review/respond", methods = ["POST"])
+def on_api_admin_join_review_respond():
+    sess = sessions.get(flask.request.cookies["token"], None)
+    if sess == None:
+        return flask.jsonify({
+            "err": 1,
+            "msg": "Session not found"
+        })
+    
+    if User.get_by_id(sess.user_id).is_admin() == False:
+        return flask.jsonify({
+            "err": 2,
+            "msg": "Not admin"
+        })
+    
+    req_id = flask.request.form["req_id"]
+    resp = flask.request.form["response"]
+
+    db.join_requests.update_one({
+        "id": req_id
+    }, {
+        "$set": {
+            "response": resp
+        }
+    })
+
+    return flask.jsonify({
+        "err": 0,
+        "msg": "OK"
+    })
+
 @app.route("/api/student/info", methods = ["POST"])
 def on_api_student_info():
     sess = sessions.get(flask.request.cookies["token"], None)
