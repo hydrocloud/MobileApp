@@ -4,17 +4,20 @@ import json
 import pyice
 import threading
 import pymongo
-import requests
 import uuid
 import zhixue
 import random
 import jpush
+import aiohttp
+import asyncio
+import motor.motor_asyncio
 
 #gevent.monkey.patch_all()
 
-app = pyice.application.Application()
+app = pyice.application.Application(session_cookie = "HMAPP_TOKEN")
 cfg = {}
 db = pymongo.MongoClient("127.0.0.1", 27017).HydroCloud_MobileApp
+db_async = motor.motor_asyncio.AsyncIOMotorClient("127.0.0.1", 27017).HydroCloud_MobileApp
 user_notification_queue = []
 
 with open(sys.argv[1], "rb") as f:
@@ -23,11 +26,36 @@ with open(sys.argv[1], "rb") as f:
 jpush.app_key = cfg["jpush_app_key"]
 jpush.master_secret = cfg["jpush_master_secret"]
 
+requests = None
+
+async def init_requests():
+    global requests
+    requests = aiohttp.ClientSession()
+
+asyncio.get_event_loop().run_until_complete(init_requests())
+
 class Session:
     def __init__(self, user_id, username):
-        self.token = str(uuid.uuid4())
         self.user_id = user_id
         self.username = username
+    
+    @staticmethod
+    def get(ctx):
+        ctx.request.load_session()
+        try:
+            return Session(ctx.request.session["user_id"], ctx.request.session["username"])
+        except:
+            return None
+    
+    def write(self, ctx):
+        ctx.request.load_session()
+        ctx.request.session["user_id"] = self.user_id
+        ctx.request.session["username"] = self.username
+    
+    def destroy(self, ctx):
+        self.user_id = None
+        self.username = None
+        self.write(ctx)
 
 class User:
     def __init__(self, id = "", name = "", role = "unknown", real_name = "", student_id = "", school_id = "", school_name = "", class_id = "", class_name = ""):
@@ -53,14 +81,11 @@ class User:
         self.disabled = False
     
     @staticmethod
-    def get_by_id(id, with_credentials = False):
-        u = db.users.find_one({
-            "id": id
-        })
+    def _get(u, with_credentials = False):
         if u == None or u.get("disabled", False) == True:
             return None
         
-        ret = User(id = id, name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
+        ret = User(id = u["id"], name = u["name"], role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
         ret.pm_disabled = u.get("pm_disabled", False)
 
         if with_credentials:
@@ -70,44 +95,35 @@ class User:
         return ret
     
     @staticmethod
+    def get_by_id(id, with_credentials = False):
+        u = db.users.find_one({
+            "id": id
+        })
+        return User._get(u, with_credentials = with_credentials)
+    
+    @staticmethod
+    async def get_by_id_async(id, with_credentials = False):
+        u = await db_async.users.find_one({
+            "id": id
+        })
+        return User._get(u, with_credentials = with_credentials)
+    
+    @staticmethod
     def get_by_name(name, with_credentials = False):
         u = db.users.find_one({
             "name": name
         })
-        if u == None or u.get("disabled", False) == True:
-            return None
-        
-        ret = User(id = u["id"], name = name, role = u["role"], real_name = u["real_name"], student_id = u["student_id"], school_id = u["school_id"], school_name = u["school_name"], class_id = u["class_id"], class_name = u["class_name"])
-        ret.pm_disabled = u.get("pm_disabled", False)
-
-        if with_credentials:
-            ret.zhixue_username = u["zhixue_username"]
-            ret.zhixue_password = u["zhixue_password"]
-
-        return ret
+        return User._get(u, with_credentials = with_credentials)
     
-    def update(self):
-        return db.users.update_one({
-            "id": self.id
-        }, {
-            "$set": {
-                "name": self.name,
-                "role": self.role,
-                "real_name": self.real_name,
-                "student_id": self.student_id,
-                "school_id": self.school_id,
-                "school_name": self.school_name,
-                "class_id": self.class_id,
-                "class_name": self.class_name,
-                "zhixue_username": self.zhixue_username,
-                "zhixue_password": self.zhixue_password,
-                "pm_disabled": self.pm_disabled,
-                "disabled": self.disabled
-            }
+    @staticmethod
+    async def get_by_name_async(name, with_credentials = False):
+        u = await db_async.users.find_one({
+            "name": name
         })
+        return User._get(u, with_credentials = with_credentials)
     
-    def insert(self):
-        return db.users.insert_one({
+    def get_props(self):
+        return {
             "id": self.id,
             "name": self.name,
             "role": self.role,
@@ -121,12 +137,37 @@ class User:
             "zhixue_password": self.zhixue_password,
             "pm_disabled": self.pm_disabled,
             "disabled": self.disabled
+        }
+    
+    def update(self):
+        return db.users.update_one({
+            "id": self.id
+        }, {
+            "$set": self.get_props()
         })
+    
+    def insert(self):
+        return db.users.insert_one(self.get_props())
+    
+    async def update_async(self):
+        return await db_async.users.update_one({
+            "id": self.id
+        }, {
+            "$set": self.get_props()
+        })
+    
+    async def insert_async(self):
+        return await db_async.users.insert_one(self.get_props())
     
     def update_or_insert(self):
         r = self.update()
         if r.matched_count == 0:
             self.insert()
+    
+    async def update_or_insert_async(self):
+        r = await self.update_async()
+        if r.matched_count == 0:
+            await self.insert_async()
     
     def remove(self):
         self.disabled = True
@@ -279,64 +320,57 @@ class Class:
             "id": self.id
         })
 
-sessions = {}
-
 @app.route("/api/user/login", methods = ["POST"])
-def on_api_user_login(ctx):
+async def on_api_user_login(ctx):
     client_token = ctx.request.form["client_token"]
 
-    r = requests.post("https://oneidentity.me/identity/verify/verify_client_token", data = {
-        "client_token": client_token
-    }).json()
+    async with requests.post("https://oneidentity.me/identity/verify/verify_client_token", data = { "client_token": client_token }) as resp:
+        r = await resp.json()
+
     if r["err"] != 0:
         return ctx.jsonify({
             "err": 1,
             "msg": "Verification failed"
         })
 
-    u = User.get_by_id(r["userId"])
+    u = await User.get_by_id_async(r["userId"])
     if u == None:
         u = User(id = r["userId"], name = r["username"])
-        u.update_or_insert()
+        await u.update_or_insert_async()
     
     sess = Session(r["userId"], r["username"])
-    sessions[sess.token] = sess
-    resp = pyice.application.Response()
-    resp.set_cookie("token", sess.token)
+    sess.write(ctx)
 
     pt = str(uuid.uuid4())
-    db.persistent_tokens.insert_one({
+    await db_async.persistent_tokens.insert_one({
         "token": pt,
         "user_id": sess.user_id,
         "username": sess.username
     })
 
-    resp.set_body(json.dumps({
+    return ctx.jsonify({
         "err": 0,
         "msg": "OK",
         "persistent_token": pt
-    }))
-    return resp
+    })
 
 @app.route("/api/user/logout", methods = ["POST"])
 def on_api_user_logout(ctx):
-    global sessions
-    
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
             "msg": "Session not found"
         })
-
-    del sessions[sess.token]
+    
+    sess.destroy(ctx)
 
     return ctx.jsonify({
         "err": 0,
         "msg": "OK"
     })
 
-@app.route("/api/ping", methods = ["POST"])
+@app.route("/api/ping", methods = ["POST"], blocking = True)
 def on_api_ping(ctx):
     return ctx.jsonify({
         "err": 0,
@@ -356,19 +390,16 @@ def on_api_user_auto_login(ctx):
         })
     
     sess = Session(info["user_id"], info["username"])
-    sessions[sess.token] = sess
-    resp = pyice.application.Response()
-    resp.set_cookie("token", sess.token)
+    sess.write(ctx)
 
-    resp.set_body(json.dumps({
+    return ctx.jsonify({
         "err": 0,
         "msg": "OK"
-    }))
-    return resp
+    })
 
 @app.route("/api/user/info", methods = ["POST"])
 def on_api_user_info(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -389,7 +420,7 @@ def on_api_user_info(ctx):
 
 @app.route("/api/user/verify/zhixue", methods = ["POST"])
 def on_api_user_verify_zhixue(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -422,7 +453,7 @@ def on_api_user_verify_zhixue(ctx):
 
 @app.route("/api/admin/user/verify", methods = ["POST"])
 def on_api_admin_user_verify(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -465,7 +496,7 @@ def on_api_admin_user_verify(ctx):
 
 @app.route("/api/admin/join_review/list", methods = ["POST"])
 def on_api_admin_join_review_list(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -506,7 +537,7 @@ def on_api_admin_join_review_list(ctx):
 
 @app.route("/api/admin/join_review/details", methods = ["POST"])
 def on_api_admin_join_review_details(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -546,7 +577,7 @@ def on_api_admin_join_review_details(ctx):
 
 @app.route("/api/admin/join_review/respond", methods = ["POST"])
 def on_api_admin_join_review_respond(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -577,7 +608,7 @@ def on_api_admin_join_review_respond(ctx):
 
 @app.route("/api/student/info", methods = ["POST"])
 def on_api_student_info(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -610,7 +641,7 @@ def on_api_student_info(ctx):
 
 @app.route("/api/student/remove", methods = ["POST"])
 def on_api_student_remove(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -647,7 +678,7 @@ def on_api_global_notification(ctx):
 
 @app.route("/api/student/exams", methods = ["POST"])
 def on_api_student_exams(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -692,13 +723,13 @@ def on_api_user_request_login(ctx):
     })
 
 @app.route("/api/user/check_login_status", methods = ["POST"])
-def on_api_user_check_login_status(ctx):
+async def on_api_user_check_login_status(ctx):
     req_id = ctx.request.form["request_id"]
-    r = db.login_requests.find_one({
+    r = await db_async.login_requests.find_one({
         "id": req_id
     })
     if r["done"] == True:
-        db.login_requests.delete_one({
+        await db_async.login_requests.delete_one({
             "id": req_id
         })
         return ctx.jsonify({
@@ -716,8 +747,6 @@ def on_api_user_check_login_status(ctx):
 def on_api_auth_callback(ctx):
     req_id = ctx.request.args["request_id"]
     client_token = ctx.request.args["client_token"]
-
-    print(req_id)
 
     db.login_requests.update_one({
         "id": req_id
@@ -743,7 +772,7 @@ def on_api_update_latest_version(ctx):
 
 @app.route("/api/user/qq_connect/status", methods = ["POST"])
 def on_api_user_qq_connect_status(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -770,7 +799,7 @@ def on_api_user_qq_connect_status(ctx):
 
 @app.route("/api/user/qq_connect/request", methods = ["POST"])
 def on_api_user_qq_connect_request(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -807,7 +836,7 @@ def on_api_user_qq_connect_request(ctx):
 
 @app.route("/api/user/qq_connect/disconnect", methods = ["POST"])
 def on_api_user_qq_connect_disconnect(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -825,7 +854,7 @@ def on_api_user_qq_connect_disconnect(ctx):
 
 @app.route("/api/user/qq_connect/watched_group_messages", methods = ["POST"])
 def on_api_user_qq_connect_watched_group_messages(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -852,20 +881,23 @@ def on_api_user_qq_connect_watched_group_messages(ctx):
     })
 
 @app.route("/api/user/service_auth_status", methods = ["POST"])
-def on_api_user_service_auth_status(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+async def on_api_user_service_auth_status(ctx):
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
             "msg": "Session not found"
         })
-    
-    r = requests.post("https://oneidentity.me/services/api/check_auth", data = {
+
+    params = {
         "serviceId": cfg["service_id"],
         "secretKey": cfg["secret_key"],
         "userId": sess.user_id,
         "targetServiceId": cfg["service_id"]
-    }).json()
+    }
+
+    async with requests.post("https://oneidentity.me/services/api/check_auth", data = params) as resp:
+        r = await resp.json()
 
     if r["err"] != 0:
         authorized = False
@@ -880,7 +912,7 @@ def on_api_user_service_auth_status(ctx):
 
 @app.route("/api/user/third_party_card/get_all", methods = ["POST"])
 def on_api_user_third_party_card_get_all(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -911,7 +943,7 @@ def on_api_user_third_party_card_get_all(ctx):
 
 @app.route("/api/user/third_party_card/remove", methods = ["POST"])
 def on_api_user_third_party_card_remove(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -933,7 +965,7 @@ def on_api_user_third_party_card_remove(ctx):
 
 @app.route("/api/student/class_notification/recent", methods = ["POST"])
 def on_api_student_class_notification_recent(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -981,7 +1013,7 @@ def on_api_student_class_notification_recent(ctx):
 
 @app.route("/api/student/class_notification/add", methods = ["POST"])
 def on_api_student_class_notification_add(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1019,7 +1051,7 @@ def on_api_student_class_notification_add(ctx):
 
 @app.route("/api/admin/push/global", methods = ["POST"])
 def on_api_admin_push_global(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1066,7 +1098,7 @@ def on_api_admin_push_global(ctx):
 
 @app.route("/api/admin/article/add", methods = ["POST"])
 def on_api_admin_article_add(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1085,7 +1117,8 @@ def on_api_admin_article_add(ctx):
     blog_article_id = int(ctx.request.form["blog_article_id"])
 
     url = "https://hydrocloud.net/archives/" + str(blog_article_id) + "/?format=raw"
-    data = requests.get(url).text
+    with requests.get(url) as resp:
+        data = resp.text
 
     try:
         title = data.split("<Title>")[1].split("</Title>")[0]
@@ -1114,7 +1147,7 @@ def on_api_admin_article_add(ctx):
 
 @app.route("/api/logging/add", methods = ["POST"])
 def on_api_logging_add(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1141,7 +1174,7 @@ def on_api_logging_add(ctx):
 
 @app.route("/api/device/register", methods = ["POST"])
 def on_api_device_register(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1207,7 +1240,7 @@ def on_api_device_get_push_action(ctx):
 
 @app.route("/api/device/user_notification/details", methods = ["POST"])
 def on_api_device_user_notification_details(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1269,7 +1302,7 @@ def on_api_article_list(ctx):
 
 @app.route("/api/join/request", methods = ["POST"])
 def on_api_join_request(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1308,7 +1341,7 @@ def on_api_join_request(ctx):
 
 @app.route("/api/join/my_request", methods = ["POST"])
 def on_api_join_my_request(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1336,7 +1369,7 @@ def on_api_join_my_request(ctx):
 
 @app.route("/api/pm/send", methods = ["POST"])
 def on_api_pm_send(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1388,7 +1421,7 @@ def on_api_pm_send(ctx):
 
 @app.route("/api/pm/list", methods = ["POST"])
 def on_api_pm_list(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1434,7 +1467,7 @@ def on_api_pm_list(ctx):
 
 @app.route("/api/pm/conversation", methods = ["POST"])
 def on_api_pm_conversation(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1474,7 +1507,7 @@ def on_api_pm_conversation(ctx):
 
 @app.route("/api/pm/details", methods = ["POST"])
 def on_api_pm_details(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1518,7 +1551,7 @@ def on_api_pm_details(ctx):
 
 @app.route("/api/pm/block", methods = ["POST"])
 def on_api_pm_block(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1551,7 +1584,7 @@ def on_api_pm_block(ctx):
 
 @app.route("/api/pm/block_list", methods = ["POST"])
 def on_api_pm_block_list(ctx):
-    sess = sessions.get(ctx.request.cookies["token"], None)
+    sess = Session.get(ctx)
     if sess == None:
         return ctx.jsonify({
             "err": 1,
@@ -1578,11 +1611,10 @@ qqbot_token = None
 qqbot_service_id = "fd44ac0a-74a9-453e-9a23-f2b2ffdce9f2"
 
 @app.route("/api/qqbot/get_session", methods = ["POST"])
-def on_api_qqbot_get_session(ctx):
+async def on_api_qqbot_get_session(ctx):
     token = ctx.request.form["token"]
-    info = requests.post("https://oneidentity.me/services/api/get_info_by_token", data = {
-        "token": token
-    }).json()
+    async with requests.post("https://oneidentity.me/services/api/get_info_by_token", data = { "token": token }) as resp:
+        info = await resp.json()
     if info["err"] != 0 or info["service_id"] != qqbot_service_id:
         return ctx.jsonify({
             "err": 1,
@@ -1703,11 +1735,10 @@ def on_api_qqbot_add_user_watched_group_messages(ctx):
     })
 
 @app.route("/api/card_provider/get_session", methods = ["POST"])
-def on_api_card_provider_get_session(ctx):
+async def on_api_card_provider_get_session(ctx):
     token = ctx.request.form["token"]
-    info = requests.post("https://oneidentity.me/services/api/get_info_by_token", data = {
-        "token": token
-    }).json()
+    async with requests.post("https://oneidentity.me/services/api/get_info_by_token", data = { "token": token }) as resp:
+        info = await resp.json()
 
     if info["err"] != 0:
         return ctx.jsonify({
@@ -1717,19 +1748,21 @@ def on_api_card_provider_get_session(ctx):
     
     service_id = info["service_id"]
     
-    u = User.get_by_id(ctx.request.form["user_id"])
+    u = await User.get_by_id_async(ctx.request.form["user_id"])
     if u == None:
         return ctx.jsonify({
             "err": 2,
             "msg": "User not found"
         })
     
-    r = requests.post("https://oneidentity.me/services/api/check_auth", data = {
+    params = {
         "serviceId": cfg["service_id"],
         "secretKey": cfg["secret_key"],
         "userId": u.id,
         "targetServiceId": service_id
-    }).json()
+    }
+    async with requests.post("https://oneidentity.me/services/api/check_auth", data = params) as resp:
+        r = await resp.json()
 
     if r["err"] != 0:
         return ctx.jsonify({
@@ -1746,12 +1779,12 @@ def on_api_card_provider_get_session(ctx):
     session_token = str(uuid.uuid4())
     current_time = int(time.time() * 1000)
 
-    db.cp_sessions.delete_many({
+    await db_async.cp_sessions.delete_many({
         "user_id": u.id,
         "service_id": info["service_id"]
     })
 
-    db.cp_sessions.insert_one({
+    await db_async.cp_sessions.insert_one({
         "token": session_token,
         "user_id": u.id,
         "service_id": info["service_id"],
